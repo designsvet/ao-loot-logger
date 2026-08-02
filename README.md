@@ -15,8 +15,7 @@ Join the discord server for questions and help: https://discord.gg/fvNMF2abXr
 
 ## Funding
 
-You can always [buy me a coffee](https://www.buymeacoffee.com/madvac) ❤️ <br>
-Original AO Loot Logger is [HERE](https://github.com/matheussampaio/ao-loot-logger)
+You can always [buy me a coffee](https://www.buymeacoffee.com/madvac) ❤️
 
 
 ## How to Use (Windows)
