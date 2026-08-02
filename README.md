@@ -1,4 +1,4 @@
-[![Download AO Loot Logger](https://img.shields.io/badge/AO%20Loot%20Logger-Download-blue)](https://github.com/madvaco/ao-loot-logger/releases/latest)
+[![Download AO Loot Logger](https://img.shields.io/badge/AO%20Loot%20Logger-Download-blue)](https://github.com/madvac/ao-loot-logger/releases/latest)
 [![Discord](https://img.shields.io/badge/discord-join-blue)](https://discord.gg/fvNMF2abXr)
 
 # Albion Online Loot Logger
