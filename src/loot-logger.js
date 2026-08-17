@@ -57,7 +57,9 @@ class LootLogger {
       .map((n) => n.toString().padStart(2, '0'))
       .join('-')
 
-    this.logFileName = path.join(__dirname, '..', '..', `loot-events-${datetime}.txt`)
+    // Local patch: '..','..' targets the packaged-binary layout; run from source
+    // that puts logs one directory ABOVE the clone, where nobody looks for them.
+    this.logFileName = path.join(__dirname, '..', `loot-events-${datetime}.txt`)
   }
 
   write({ date, itemId, quantity, itemName, lootedBy, lootedFrom }) {
