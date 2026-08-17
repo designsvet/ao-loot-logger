@@ -1,6 +1,7 @@
 const MemoryStorage = require('../../storage/memory-storage')
 const LootLogger = require('../../loot-logger')
 const Logger = require('../../utils/logger')
+const PendingSelfLoots = require('../../pending-self-loots')
 const ParserError = require('../parser-error')
 
 const name = 'EvInventoryPutItem'
@@ -27,7 +28,8 @@ function handle(event) {
   MemoryStorage.loots.deleteById(objectId)
 
   if (lootedBy == null) {
-    return Logger.warn('SELF not detected yet. Skipping self loot event.')
+    // Local patch: hold it until OpJoin identifies us, instead of dropping it.
+    return PendingSelfLoots.push({ date, itemId, quantity, itemName, lootedFrom })
   }
 
   LootLogger.write({

@@ -1,5 +1,6 @@
 const MemoryStorage = require('../../storage/memory-storage')
 const Logger = require('../../utils/logger')
+const PendingSelfLoots = require('../../pending-self-loots')
 const ParserError = require('../parser-error')
 
 const name = 'OpJoin'
@@ -22,6 +23,9 @@ function handle(event) {
   }
 
   MemoryStorage.players.self = player
+
+  // Local patch: anything looted before we knew who we were is written now.
+  PendingSelfLoots.flush(player)
 
   Logger.debug('OpJoin', player, event.parameters)
 }

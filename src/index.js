@@ -82,6 +82,8 @@ async function main() {
 
   KeyboardInput.init()
 
+  startHeartbeat()
+
   console.info([
     '',
     `Logs will be written to ${LootLogger.logFileName}`,
@@ -92,6 +94,27 @@ async function main() {
     '',
     `${orange('AO Loot Logger Viewer can be found here:')} ${cyan('https://loot-logger.ddns.net/ao-loot-logger-viewer')} (Ctrl + click to open).`
   ].join('\n'))
+}
+
+// Local patch: one line a minute, so "is this thing on?" is answerable without
+// alt-tabbing into the game and hoping.
+function startHeartbeat() {
+  const MemoryStorage = require('./storage/memory-storage')
+  const PendingSelfLoots = require('./pending-self-loots')
+
+  setInterval(() => {
+    const self = MemoryStorage.players.self
+    const parts = [
+      self ? `character: ${self.playerName}` : 'character: not identified yet (change zone once)',
+      `lines written: ${LootLogger.linesWritten}`
+    ]
+
+    if (PendingSelfLoots.size() > 0) {
+      parts.push(`held: ${PendingSelfLoots.size()}`)
+    }
+
+    console.info(`[status] ${parts.join(' · ')}`)
+  }, 60000).unref()
 }
 
 function restartNetwork() {

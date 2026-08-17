@@ -9,6 +9,7 @@ class LootLogger {
   constructor() {
     this.stream = null
     this.logFileName = null
+    this.linesWritten = 0 // local patch: what the heartbeat reports
 
     this.createNewLogFileName()
 
@@ -63,6 +64,8 @@ class LootLogger {
     if (this.stream == null) {
       this.init()
     }
+
+    this.linesWritten += 1
 
     const server = ServerRegion.getCurrentServer()
     const serverName = server ? server.name : ''

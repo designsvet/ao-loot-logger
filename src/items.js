@@ -10,7 +10,8 @@ class Items {
 
     try {
       const response = await fetch(
-        'https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt'
+        'https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt',
+        { signal: AbortSignal.timeout(8000) }
       )
 
       if (!response.ok) {
@@ -19,6 +20,7 @@ class Items {
         data = await response.text()
       }
     } catch (error) {
+      console.info('Could not fetch the latest item names; using the bundled list.')
       data = fallback
     }
 
