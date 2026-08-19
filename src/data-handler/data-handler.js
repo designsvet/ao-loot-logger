@@ -3,6 +3,7 @@ const ResponseData = require('./response-data')
 const EventData = require('./event-data')
 const Logger = require('../utils/logger')
 const MemoryStorage = require('../storage/memory-storage')
+const ChestWindow = require('../storage/chest-window')
 const ParserError = require('./parser-error')
 const Config = require('../config')
 
@@ -121,6 +122,24 @@ class DataHandler {
           // about: that is precisely the shape of the thing being hunted, and it
           // costs nothing during ordinary play. No special test run needed.
           namesInPayload(event)
+
+          // While a chest is in play, dump unhandled events IN FULL. This is the
+          // only shape of evidence that can answer "does anything name an
+          // out-of-party looter" — key-only logs and a known-player matcher both
+          // structurally cannot.
+          if (ChestWindow.shouldDump()) {
+            Logger.debug('CHEST_WINDOW_EVENT', {
+              code: eventId,
+              payload: Object.fromEntries(
+                Object.entries(event.parameters)
+                  .slice(0, 16)
+                  .map(([k, v]) => [
+                    k,
+                    Array.isArray(v) ? `array(${v.length}): ${v.slice(0, 6).join(',')}` : v
+                  ])
+              )
+            })
+          }
       }
     } catch (error) {
       if (error instanceof ParserError) {

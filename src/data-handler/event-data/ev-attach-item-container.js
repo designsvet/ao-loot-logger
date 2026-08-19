@@ -1,11 +1,14 @@
 const MemoryStorage = require('../../storage/memory-storage')
 const uuidStringify = require('../../utils/uuid-stringify')
 const Logger = require('../../utils/logger')
+const ChestWindow = require('../../storage/chest-window')
 const ParserError = require('../parser-error')
 
 const name = 'EvAttachItemContainer'
 
 function handle(event) {
+  ChestWindow.touch()
+
   Logger.debug('EvAttachItemContainer', event.parameters)
 
   const { id, uuid, inventory, slots } = parse(event)

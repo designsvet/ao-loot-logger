@@ -1,10 +1,13 @@
 const MemoryStorage = require('../../storage/memory-storage')
 const Logger = require('../../utils/logger')
+const ChestWindow = require('../../storage/chest-window')
 const ParserError = require('../parser-error')
 
 const name = 'EvNewLootChest'
 
 function handle(event) {
+  ChestWindow.touch()
+
   const { id, owner } = parse(event)
 
   let container = MemoryStorage.containers.getById(id)
