@@ -1,4 +1,7 @@
+const MemoryStorage = require('../../storage/memory-storage')
 const PartyLootStorage = require('../../storage/party-loot-storage')
+const LootLogger = require('../../loot-logger')
+const Items = require('../../items')
 const Logger = require('../../utils/logger')
 const ParserError = require('../parser-error')
 
@@ -13,17 +16,21 @@ const name = 'EvPartyLootItems'
  * PartyLootItemsEvent.cs and albion-packet-hooking/AlbionPacketHandler
  * LootEventHandler.cs).
  *
- * Nothing is logged here — an assignment is not a pickup. See
- * ev-party-loot-items-removed.js.
+ * Attribution happens HERE: this is the only event that names a player per
+ * item. The removals that follow only clear the cache — see the long note at
+ * the write below for why they cannot attribute.
  */
 function handle(event) {
   const { sourceObjectId, itemObjectIds, itemTypeIds, amounts, playerNames } = parse(event)
 
-  Logger.debug('EvPartyLootItems', {
-    sourceObjectId,
-    items: itemObjectIds.length,
-    named: playerNames.length
-  })
+  const container = MemoryStorage.containers.getById(sourceObjectId)
+  // Bags stay EvOtherGrabbedLoot's job — that path covers everyone nearby and
+  // fires whether or not you are partied.
+  const isChest = container == null || container.type === 'chest'
+  const chestName = container?.owner ?? `@LOOTCHEST_${sourceObjectId}`
+  const selfName = MemoryStorage.players.self?.playerName
+
+  let written = 0
 
   for (let i = 0; i < itemObjectIds.length; i++) {
     const playerName = playerNames[i]
@@ -39,7 +46,49 @@ function handle(event) {
       quantity: amounts[i] ?? 1,
       playerName
     })
+
+    if (!isChest || playerName === selfName) {
+      continue
+    }
+
+    const item = Items.get(itemTypeIds[i])
+
+    if (item == null) {
+      continue
+    }
+
+    // Attributed HERE rather than on removal. Party loot distributes a chest's
+    // contents to named members, and this event carries the exact name per item;
+    // the removals that follow identify items only by TYPE, which is unmatchable
+    // whenever two members are owed the same type — measured 2026-08-19, that
+    // lost 11 of 16 removals on a 92-item chest.
+    //
+    // The trade-off, stated plainly: if a distribution is ever reassigned or
+    // abandoned, this logs a pickup that did not happen. Silence for most of a
+    // chest is the worse failure for a loot report, and the officer is the judge.
+    // The local player is skipped — EvInventoryPutItem already logs our own
+    // pickups under the chest's real name.
+    LootLogger.write({
+      date: new Date(),
+      itemId: item.itemId,
+      itemName: item.itemName,
+      quantity: amounts[i] ?? 1,
+      lootedBy:
+        MemoryStorage.players.getByName(playerName) ?? MemoryStorage.players.add({ playerName }),
+      lootedFrom:
+        MemoryStorage.players.getByName(chestName) ?? MemoryStorage.players.add({ playerName: chestName })
+    })
+
+    written += 1
   }
+
+  Logger.debug('EvPartyLootItems', {
+    sourceObjectId,
+    items: itemObjectIds.length,
+    named: playerNames.length,
+    isChest,
+    written
+  })
 }
 
 const asArray = (value) => (Array.isArray(value) ? value : [])
