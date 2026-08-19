@@ -89,6 +89,20 @@ function handle(event) {
     isChest,
     written
   })
+
+  // An assignment that parses to nothing is either a silver distribution (silver
+  // does not travel in the item arrays) or a payload shape these indices miss.
+  // Only the raw keys can tell them apart, so dump them when it happens.
+  if (itemObjectIds.length === 0) {
+    Logger.debug('EvPartyLootItems EMPTY — raw payload', {
+      keys: Object.keys(event.parameters),
+      preview: Object.fromEntries(
+        Object.entries(event.parameters)
+          .slice(0, 12)
+          .map(([k, v]) => [k, Array.isArray(v) ? `array(${v.length}): ${v.slice(0, 4).join(',')}` : v])
+      )
+    })
+  }
 }
 
 const asArray = (value) => (Array.isArray(value) ? value : [])
