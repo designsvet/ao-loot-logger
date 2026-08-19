@@ -21,8 +21,12 @@ class DataHandler {
       }
 
       switch (eventId) {
-        // case Config.events.EvInventoryPutItem:
-        //   return EventData.EvInventoryPutItem.handle(event)
+        // Local patch: re-enabled. The fork left self-loot off ("not supported yet"
+        // in the Protocol 18 issue), which is why a player's OWN pickups never
+        // logged. Code 26 and the handler's params (0 ObjectId, 1 slot, 2 guid)
+        // both match the reference implementation.
+        case Config.events.EvInventoryPutItem:
+          return EventData.EvInventoryPutItem.handle(event)
 
         case Config.events.EvNewCharacter:
           return EventData.EvNewCharacter.handle(event)
@@ -54,8 +58,8 @@ class DataHandler {
          case Config.events.EvNewLootChest:
           return EventData.EvNewLootChest.handle(event)
 
-        // case Config.events.EvUpdateLootChest:
-        //  return EventData.EvUpdateLootChest.handle(event)
+        case Config.events.EvUpdateLootChest:
+          return EventData.EvUpdateLootChest.handle(event)
 
         default:
           if (process.env.LOG_UNPROCESSED) {
