@@ -32,8 +32,18 @@ and (per the code) an outpost or world/dungeon LOOT chest, whose owner string is
 copied onto each item by `EvAttachItemContainer`. In that case `looted_from`
 holds the chest's identifier rather than a player name.
 
-**Never logged:** city, bank and guild chests (their items carry no owner —
-`EvInventoryPutItem` bails on `!loot.owner`), gathering, and market buys.
+**Your own pickups log even when the container is unknown.** Items whose
+container never registered (you started the logger while already standing at the
+chest, or a container class that never announces itself) are written with
+`looted_from = @UNKNOWN_CONTAINER` rather than dropped — who took what is the
+part that matters, and the source column is display only.
+
+**Watch for:** if ordinary bank or guild-chest shuffling starts appearing as
+loot, that placeholder is why — say so and it gets gated behind a flag.
+
+**Not needed anyway for guild/territory storage:** the game's own chest-log
+export already records those withdrawals WITH the player's name, for everyone,
+no capture required.
 
 **Other players' pickups — corpses AND chests, by two different events.**
 
