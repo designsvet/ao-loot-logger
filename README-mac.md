@@ -32,18 +32,24 @@ and (per the code) an outpost or world/dungeon LOOT chest, whose owner string is
 copied onto each item by `EvAttachItemContainer`. In that case `looted_from`
 holds the chest's identifier rather than a player name.
 
-**Your own pickups log even when the container is unknown.** Items whose
-container never registered (you started the logger while already standing at the
-chest, or a container class that never announces itself) are written with
-`looted_from = @UNKNOWN_CONTAINER` rather than dropped — who took what is the
-part that matters, and the source column is display only.
+**Where each kind of loot actually comes from:**
 
-**Watch for:** if ordinary bank or guild-chest shuffling starts appearing as
-loot, that placeholder is why — say so and it gets gated behind a flag.
+| source | who you can see | how |
+|---|---|---|
+| corpse / mob bag | **everyone nearby**, named | `EvOtherGrabbedLoot` (279) — proven live |
+| loot chest (Morgana camp, dungeon) | yourself; others unconfirmed | chest registers via `EvNewLootChest` (393) and its items carry its name |
+| **territory / guild storage** | **everyone, named** | **the game's own per-chest log** (Actions → Chest Log on THAT chest) — better than capture, and no capture needed |
 
-**Not needed anyway for guild/territory storage:** the game's own chest-log
-export already records those withdrawals WITH the player's name, for everyone,
-no capture required.
+Territory storage is a *building with access control* (measured: every container
+attach there sits among `NewBuilding` / `AccessStatus` / `NewFortificationBuilding`,
+with no loot event at all), so its items carry no owner and the logger cannot
+tell a withdrawal from a pickup.
+
+**`LOG_UNKNOWN_SOURCE=1`** logs your own pickups from such unregistered
+containers anyway, as `looted_from = @UNKNOWN_CONTAINER`. Off by default on
+purpose: it would record gear you took OUT of guild storage as loot, which
+inflates what you "looted" and drags your donation compliance down in the bot's
+report. Use it for testing, not for a live raid.
 
 **Other players' pickups — corpses AND chests, by two different events.**
 

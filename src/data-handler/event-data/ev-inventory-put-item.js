@@ -21,15 +21,24 @@ function handle(event) {
     return
   }
 
-  // Local patch: an item whose container never registered has no owner — which
-  // happens whenever the logger starts while you are ALREADY standing at the
-  // chest (the registration event fired before we were listening), and for
-  // container classes that never announce themselves as loot chests. Upstream
-  // dropped these outright, so a whole chest run logged nothing.
+  // Local patch: an item whose container never registered has no owner. That
+  // covers real loot (a chest that never announced itself) AND ordinary guild
+  // or territory STORAGE, which is a building with access control, not a loot
+  // chest — measured 2026-08-19: every container attach there was surrounded by
+  // NewBuilding / AccessStatus / NewFortificationBuilding and no loot event.
   //
-  // A pickup with an unknown source is still a true pickup: WHO took WHAT is the
-  // part the report is built on, and the source column is display only. So it is
-  // logged with an explicit placeholder rather than discarded — never invented.
+  // Logging storage withdrawals as loot is actively harmful downstream: it
+  // inflates what a member "looted" and so drags their donation compliance down
+  // for gear they merely took out of the chest. And it is redundant — the game's
+  // own per-chest log already records those withdrawals WITH player names, for
+  // everyone, which is strictly better than capture.
+  //
+  // So unknown-source pickups are opt-in. With the flag they are logged honestly
+  // rather than invented; without it they are dropped, as upstream does.
+  if (!loot.owner && !process.env.LOG_UNKNOWN_SOURCE) {
+    return
+  }
+
   const source = loot.owner || UNKNOWN_SOURCE
 
   const lootedBy = MemoryStorage.players.self
