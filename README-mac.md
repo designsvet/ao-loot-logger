@@ -35,12 +35,19 @@ holds the chest's identifier rather than a player name.
 **Never logged:** city, bank and guild chests (their items carry no owner —
 `EvInventoryPutItem` bails on `!loot.owner`), gathering, and market buys.
 
-**Other players' pickups — corpses YES, chests NO.** Measured 2026-08-19: around
-a death, 16 `EvOtherGrabbedLoot` events arrived in 30 seconds and named both
-enemy looters. During six minutes of a party of four looting an open-world chest:
-zero. The server simply does not tell your client who else took what from a
-chest, so for chest content each player only ever logs their OWN pickups —
-everyone has to run the logger for a complete picture.
+**Other players' pickups — corpses AND chests, by two different events.**
+
+- Corpses/bags: `EvOtherGrabbedLoot` (279). Measured — 16 events in the 30s
+  around a death, naming both enemy looters.
+- Chests: `PartyLootItems` (302) + `PartyLootItemsRemoved` (303), wired here as a
+  local patch. 302 assigns items to player NAMES (parameter 10 is a `string[]`,
+  one name per item); 303 says which actually left the chest; the join is the
+  attribution. A line is written only on 303, so an item earmarked but not taken
+  is never logged, and a replayed 303 cannot double-log.
+
+An earlier note here claimed chests were unattributable. That was wrong: it was
+measured with a build subscribed to ten event codes, none of them 302/303, so
+the silence was the instrument's, not the server's.
 
 The file is created lazily, on the first captured pickup, so an empty folder
 usually means "nothing qualifying has been looted yet".

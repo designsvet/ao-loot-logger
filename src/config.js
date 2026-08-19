@@ -16,6 +16,12 @@ const EVENTS = {
   // and every self-pickup from one hit "cant find container". Derived from
   // Triky313/AlbionOnline-StatisticsAnalysis EventCodes.cs enum ordinals, whose
   // values match all ten codes above EXACTLY (verified 2026-08-19).
+  // Local patch: chest attribution (see ev-party-loot-items*.js). Codes derived
+  // from the reference enum's ordinals, calibrated against the ten codes above
+  // which match it exactly at offset 0. They DRIFT between game patches — other
+  // repos carry 300/301 and 297/298 — so re-derive rather than trusting a doc.
+  EvPartyLootItems: 302,
+  EvPartyLootItemsRemoved: 303,
   EvNewLootChest: 393,
   EvUpdateLootChest: 394,
   OpJoin: 2,

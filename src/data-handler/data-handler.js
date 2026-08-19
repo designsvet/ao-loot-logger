@@ -55,6 +55,15 @@ class DataHandler {
         case Config.events.EvOtherGrabbedLoot:
           return EventData.EvOtherGrabbedLoot.handle(event)
 
+        // Local patch: chest loot. EvOtherGrabbedLoot is corpse/bag scoped and
+        // never fires for a chest, so without these two a chest emptied by four
+        // people logs nothing but your own pickups.
+        case Config.events.EvPartyLootItems:
+          return EventData.EvPartyLootItems.handle(event)
+
+        case Config.events.EvPartyLootItemsRemoved:
+          return EventData.EvPartyLootItemsRemoved.handle(event)
+
          case Config.events.EvNewLootChest:
           return EventData.EvNewLootChest.handle(event)
 
