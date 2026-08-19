@@ -2,46 +2,113 @@
  * Local patch (Guild Butler, 2026-08-19) — chest loot attribution.
  *
  * Chest pickups are NOT announced by EvOtherGrabbedLoot; that event is
- * corpse/bag scoped. Chests use a two-phase pair instead:
+ * corpse/bag scoped. Chests use an assignment/removal pair instead:
  *
- *   PartyLootItems (302)        — assignment. Parallel arrays: item object ids,
- *                                 item type ids, qualities, amounts, and at
- *                                 parameter 10 a string[] of PLAYER NAMES, one
- *                                 per item. This is the attribution.
- *   PartyLootItemsRemoved (303) — commit. Only source id + item object ids; NO
- *                                 name. The name comes from joining back to the
- *                                 assignment cached here.
+ *   PartyLootItems (302)          — assignment. Parallel arrays: item object
+ *                                   ids, item TYPE ids, amounts, and at
+ *                                   parameter 10 a string[] of PLAYER NAMES,
+ *                                   one per item. This is the attribution.
+ *   PartyLootItemsRemoved (303)   — commit BY OBJECT ID. Rare in practice.
+ *   PartyLootItemTypesRemoved(304)— commit BY TYPE, no object id and no name.
+ *                                   This is what a real chest actually sends
+ *                                   (measured 2026-08-19: a 10-item assignment
+ *                                   was followed by a stream of 304s and not a
+ *                                   single 303).
  *
- * So a line is written on 303, using what 302 told us. Nothing is written on
- * assignment alone: 302 says who an item is EARMARKED for, 303 says it actually
- * left the chest.
+ * So assignments are indexed BOTH ways: by object id for the 303 path, and by
+ * (source, item type) for the 304 path, which can only match on type.
  *
- * Bounded so a long session cannot grow it without limit — a chest that is never
- * emptied simply ages out of the cache.
+ * Bounded, because "held forever" is its own leak.
  */
 
 const MAX_PENDING = 5000;
 
-const pending = new Map();
+/** itemObjectId -> entry */
+const byObjectId = new Map();
+/** `${sourceObjectId}|${itemNumId}` -> entry[] (FIFO, oldest assignment first) */
+const byType = new Map();
+
+const typeKey = (sourceObjectId, itemNumId) => `${sourceObjectId}|${itemNumId}`;
 
 const put = (itemObjectId, entry) => {
-  if (pending.size >= MAX_PENDING) {
-    const oldest = pending.keys().next().value;
-    pending.delete(oldest);
+  if (byObjectId.size >= MAX_PENDING) {
+    const oldest = byObjectId.keys().next().value;
+    take(oldest);
   }
-  pending.set(itemObjectId, entry);
+
+  byObjectId.set(itemObjectId, entry);
+
+  const key = typeKey(entry.sourceObjectId, entry.itemNumId);
+  const queue = byType.get(key);
+
+  if (queue == null) {
+    byType.set(key, [{ ...entry, itemObjectId }]);
+  } else {
+    queue.push({ ...entry, itemObjectId });
+  }
 };
 
+/** Consume by object id (the 303 path). */
 const take = (itemObjectId) => {
-  const entry = pending.get(itemObjectId);
+  const entry = byObjectId.get(itemObjectId);
 
-  if (entry != null) {
-    pending.delete(itemObjectId);
+  if (entry == null) {
+    return undefined;
+  }
+
+  byObjectId.delete(itemObjectId);
+
+  const key = typeKey(entry.sourceObjectId, entry.itemNumId);
+  const queue = byType.get(key);
+
+  if (queue != null) {
+    const at = queue.findIndex((q) => q.itemObjectId === itemObjectId);
+
+    if (at >= 0) {
+      queue.splice(at, 1);
+    }
+
+    if (queue.length === 0) {
+      byType.delete(key);
+    }
   }
 
   return entry;
 };
 
-const size = () => pending.size;
+/**
+ * Consume by (source, type) — the 304 path.
+ *
+ * Returns undefined when the pending assignments for that type name MORE THAN
+ * ONE player: the removal says an item of this type left the chest, not which
+ * copy, so with two claimants there is no honest answer. A wrong name in a loot
+ * report is worse than a missing row.
+ */
+const takeByType = (sourceObjectId, itemNumId) => {
+  const key = typeKey(sourceObjectId, itemNumId);
+  const queue = byType.get(key);
 
-module.exports = { put, take, size };
+  if (queue == null || queue.length === 0) {
+    return undefined;
+  }
+
+  const distinctNames = new Set(queue.map((q) => q.playerName));
+
+  if (distinctNames.size > 1) {
+    return undefined;
+  }
+
+  const entry = queue.shift();
+
+  if (queue.length === 0) {
+    byType.delete(key);
+  }
+
+  byObjectId.delete(entry.itemObjectId);
+
+  return entry;
+};
+
+const size = () => byObjectId.size;
+
+module.exports = { put, take, takeByType, size };

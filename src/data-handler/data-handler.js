@@ -64,6 +64,10 @@ class DataHandler {
         case Config.events.EvPartyLootItemsRemoved:
           return EventData.EvPartyLootItemsRemoved.handle(event)
 
+        // What a real chest actually sends: removal by item TYPE, nameless.
+        case Config.events.EvPartyLootItemTypesRemoved:
+          return EventData.EvPartyLootItemTypesRemoved.handle(event)
+
          case Config.events.EvNewLootChest:
           return EventData.EvNewLootChest.handle(event)
 

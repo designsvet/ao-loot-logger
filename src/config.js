@@ -22,6 +22,7 @@ const EVENTS = {
   // repos carry 300/301 and 297/298 — so re-derive rather than trusting a doc.
   EvPartyLootItems: 302,
   EvPartyLootItemsRemoved: 303,
+  EvPartyLootItemTypesRemoved: 304,
   EvNewLootChest: 393,
   EvUpdateLootChest: 394,
   OpJoin: 2,

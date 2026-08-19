@@ -11,6 +11,7 @@ const EvNewLootChest = require('./ev-new-loot-chest')
 const EvOtherGrabbedLoot = require('./ev-other-grabbed-loot')
 const EvPartyLootItems = require('./ev-party-loot-items')
 const EvPartyLootItemsRemoved = require('./ev-party-loot-items-removed')
+const EvPartyLootItemTypesRemoved = require('./ev-party-loot-item-types-removed')
 const EvUpdateLootChest = require('./ev-update-loot-chest')
 
 module.exports = {
@@ -27,5 +28,6 @@ module.exports = {
   EvOtherGrabbedLoot,
   EvPartyLootItems,
   EvPartyLootItemsRemoved,
+  EvPartyLootItemTypesRemoved,
   EvUpdateLootChest
 }
