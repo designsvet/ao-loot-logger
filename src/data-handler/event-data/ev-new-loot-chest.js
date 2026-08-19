@@ -6,7 +6,6 @@ const ParserError = require('../parser-error')
 const name = 'EvNewLootChest'
 
 function handle(event) {
-  ChestWindow.touch()
 
   const { id, owner } = parse(event)
 
@@ -25,6 +24,8 @@ function handle(event) {
   if (container.type !== type) {
     container.type = type
   }
+
+  ChestWindow.touch(container.owner)
 
   Logger.debug('EvNewLootChest', container, event.parameters)
 }

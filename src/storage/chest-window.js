@@ -21,9 +21,14 @@ const MAX_DUMPS_PER_WINDOW = 1500;
 
 let openedAt = 0;
 let dumps = 0;
+let lastChestName = null;
 
-/** A chest event happened — open (or extend) the window. */
-const touch = () => {
+/** A chest event happened — open (or extend) the window, remembering which chest. */
+const touch = (chestName) => {
+  if (typeof chestName === 'string' && chestName.length > 0) {
+    lastChestName = chestName;
+  }
+
   const now = Date.now();
 
   if (now - openedAt > WINDOW_MS) {
@@ -48,4 +53,15 @@ const shouldDump = () => {
   return true;
 };
 
-module.exports = { touch, shouldDump, WINDOW_MS };
+/**
+ * The chest you are standing at, if one announced itself recently.
+ *
+ * EvNewLootChest registers a chest by OBJECT id while EvAttachItemContainer
+ * delivers items under a CONTAINER id, and the two do not always match — when
+ * they don't, items arrive with no owner and every pickup is dropped, which is
+ * how a whole chest run logged nothing. Taking items seconds after a chest
+ * announced itself is enough to name the source honestly.
+ */
+const recentChestName = () => (Date.now() - openedAt <= WINDOW_MS ? lastChestName : null);
+
+module.exports = { touch, shouldDump, recentChestName, WINDOW_MS };

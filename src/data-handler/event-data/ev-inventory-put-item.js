@@ -2,6 +2,7 @@ const MemoryStorage = require('../../storage/memory-storage')
 const LootLogger = require('../../loot-logger')
 const Logger = require('../../utils/logger')
 const PendingSelfLoots = require('../../pending-self-loots')
+const ChestWindow = require('../../storage/chest-window')
 const ParserError = require('../parser-error')
 
 const name = 'EvInventoryPutItem'
@@ -35,11 +36,17 @@ function handle(event) {
   //
   // So unknown-source pickups are opt-in. With the flag they are logged honestly
   // rather than invented; without it they are dropped, as upstream does.
-  if (!loot.owner && !process.env.LOG_UNKNOWN_SOURCE) {
+  // A chest that announced itself seconds ago is a far better answer than
+  // dropping the pickup: EvNewLootChest registers by OBJECT id while the items
+  // arrive under a CONTAINER id, and when those do not match the item carries no
+  // owner. Measured 2026-08-19: five pickups from a real chest logged nothing.
+  const recentChest = ChestWindow.recentChestName()
+
+  if (!loot.owner && recentChest == null && !process.env.LOG_UNKNOWN_SOURCE) {
     return
   }
 
-  const source = loot.owner || UNKNOWN_SOURCE
+  const source = loot.owner || recentChest || UNKNOWN_SOURCE
 
   const lootedBy = MemoryStorage.players.self
   const lootedFrom =
