@@ -2,8 +2,35 @@ const RequestData = require('./request-data')
 const ResponseData = require('./response-data')
 const EventData = require('./event-data')
 const Logger = require('../utils/logger')
+const MemoryStorage = require('../storage/memory-storage')
 const ParserError = require('./parser-error')
 const Config = require('../config')
+
+
+/**
+ * Local patch: does this unhandled event mention a known player? If so it is a
+ * candidate attribution channel and worth seeing in full.
+ */
+function namesInPayload(event) {
+  const known = MemoryStorage.players.players
+
+  for (const [key, value] of Object.entries(event.parameters)) {
+    if (typeof value !== 'string' || value.length < 3 || known[value] == null) {
+      continue
+    }
+
+    return Logger.debug('UNPROCESSED_EVENT NAMES A PLAYER', {
+      code: event.parameters[252],
+      matchedAtParam: key,
+      playerName: value,
+      payload: Object.fromEntries(
+        Object.entries(event.parameters)
+          .slice(0, 14)
+          .map(([k, v]) => [k, Array.isArray(v) ? `array(${v.length}): ${v.slice(0, 5).join(',')}` : v])
+      )
+    })
+  }
+}
 
 class DataHandler {
   static handleEventData(event) {
@@ -85,6 +112,15 @@ class DataHandler {
           if (process.env.LOG_UNPROCESSED) {
             Logger.debug(`UNPROCESSED_EVENT code=${eventId} params=${Object.keys(event.parameters).join(',')}`)
           }
+
+          // Local patch: the standing question is whether ANY event we do not
+          // handle carries another player's name — i.e. a hidden attribution
+          // channel for chest loot. Keys alone cannot answer that, and dumping
+          // every value would bury the log (5863 unknown events in 3.5 minutes).
+          // So dump only events whose payload mentions a player we already know
+          // about: that is precisely the shape of the thing being hunted, and it
+          // costs nothing during ordinary play. No special test run needed.
+          namesInPayload(event)
       }
     } catch (error) {
       if (error instanceof ParserError) {

@@ -82,11 +82,16 @@ function handle(event) {
     written += 1
   }
 
+  // Log WHOSE names, not just how many. Counting them was the blind spot: a
+  // chest assigning 14 items "all named" tells you nothing about whether any of
+  // those names belong to someone other than you, which is the entire question.
   Logger.debug('EvPartyLootItems', {
     sourceObjectId,
-    items: itemObjectIds.length,
-    named: playerNames.length,
+    source: chestName,
     isChest,
+    items: itemObjectIds.length,
+    names: [...new Set(playerNames.filter((n) => typeof n === 'string' && n.length > 0))],
+    self: selfName ?? '(unknown)',
     written
   })
 
