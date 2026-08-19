@@ -35,11 +35,12 @@ holds the chest's identifier rather than a player name.
 **Never logged:** city, bank and guild chests (their items carry no owner —
 `EvInventoryPutItem` bails on `!loot.owner`), gathering, and market buys.
 
-**Unverified:** whether OTHER players' chest pickups appear. Those can only come
-from `EvOtherGrabbedLoot`, and whether the server broadcasts it for chest loot is
-game behaviour, not visible in this code. Note `OpInventoryMoveItem` explicitly
-skips `type === 'chest'` containers, so chest loot can only reach the log via the
-put-item path.
+**Other players' pickups — corpses YES, chests NO.** Measured 2026-08-19: around
+a death, 16 `EvOtherGrabbedLoot` events arrived in 30 seconds and named both
+enemy looters. During six minutes of a party of four looting an open-world chest:
+zero. The server simply does not tell your client who else took what from a
+chest, so for chest content each player only ever logs their OWN pickups —
+everyone has to run the logger for a complete picture.
 
 The file is created lazily, on the first captured pickup, so an empty folder
 usually means "nothing qualifying has been looted yet".

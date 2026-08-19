@@ -62,8 +62,12 @@ class DataHandler {
           return EventData.EvUpdateLootChest.handle(event)
 
         default:
+          // Local patch: `silly` goes to the console only, so unknown events were
+          // invisible to any after-the-fact analysis — which is exactly what you
+          // need when asking "did the server tell us who looted that chest?".
+          // At debug level this lands in debug-logs.txt, compact enough to grep.
           if (process.env.LOG_UNPROCESSED) {
-            Logger.silly('handleEventData unprocessed', event.parameters)
+            Logger.debug(`UNPROCESSED_EVENT code=${eventId} params=${Object.keys(event.parameters).join(',')}`)
           }
       }
     } catch (error) {
