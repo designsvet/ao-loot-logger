@@ -56,7 +56,20 @@ purpose: it would record gear you took OUT of guild storage as loot, which
 inflates what you "looted" and drags your donation compliance down in the bot's
 report. Use it for testing, not for a live raid.
 
-**Chest attribution has a condition: you must be IN the distribution.**
+**Chest attribution depends on the party's LOOT MODE — this is the big one.**
+
+| party loot mode | what a chest tells your client |
+|---|---|
+| **party loot / distribution** | `PartyLootItems` names EVERY item and EVERY member (75 items / 75 names observed) — full attribution |
+| **free-for-all** | nothing usable: either no assignment at all, or one with every array empty (params 7/8 = `-1`). Nobody is attributable, not even party members |
+
+Measured 2026-08-19 across seven chests. Your OWN pickups always log either way
+(via `EvInventoryPutItem`, under the chest's real name). Anyone outside the
+party is never attributable regardless of mode.
+
+**So: run party-loot mode if you want the group's chest loot on the report.**
+
+**Chest attribution also requires you to be IN the distribution.**
 Measured across five chests on 2026-08-19. When you take part, the assignment
 event names every item and every player (75 items / 75 names on one chest), and
 this fork writes a line per item for everyone but you. When you merely stand
