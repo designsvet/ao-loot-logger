@@ -27,10 +27,22 @@ sudo node src/index.js
 
 ## What actually gets logged
 
-Only loot taken **from a corpse or a mob's loot bag** — either you taking it, or
-someone else grabbing it near you. Gathering, market buys, bank and guild-chest
-moves are never logged. The file is created lazily, on the first captured
-pickup, so an empty folder usually means "nothing has been looted yet".
+Loot taken **from something with an owner** — a player's corpse, a mob's bag,
+and (per the code) an outpost or world/dungeon LOOT chest, whose owner string is
+copied onto each item by `EvAttachItemContainer`. In that case `looted_from`
+holds the chest's identifier rather than a player name.
+
+**Never logged:** city, bank and guild chests (their items carry no owner —
+`EvInventoryPutItem` bails on `!loot.owner`), gathering, and market buys.
+
+**Unverified:** whether OTHER players' chest pickups appear. Those can only come
+from `EvOtherGrabbedLoot`, and whether the server broadcasts it for chest loot is
+game behaviour, not visible in this code. Note `OpInventoryMoveItem` explicitly
+skips `type === 'chest'` containers, so chest loot can only reach the log via the
+put-item path.
+
+The file is created lazily, on the first captured pickup, so an empty folder
+usually means "nothing qualifying has been looted yet".
 
 ## Local patches on top of the fork
 
