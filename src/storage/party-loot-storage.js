@@ -111,4 +111,20 @@ const takeByType = (sourceObjectId, itemNumId) => {
 
 const size = () => byObjectId.size;
 
-module.exports = { put, take, takeByType, size };
+/** Diagnostics: what is still pending for a source, so an unmatched removal can
+ *  say WHY — an id-space mismatch looks nothing like genuine ambiguity. */
+const pendingFor = (sourceObjectId) => {
+  const out = [];
+
+  for (const [key, queue] of byType) {
+    const [source, itemNumId] = key.split('|');
+
+    if (Number(source) === sourceObjectId) {
+      out.push({ itemNumId: Number(itemNumId), names: [...new Set(queue.map((q) => q.playerName))] });
+    }
+  }
+
+  return out;
+};
+
+module.exports = { put, take, takeByType, size, pendingFor };

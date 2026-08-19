@@ -43,6 +43,19 @@ function handle(event) {
 
     if (pendingItem == null) {
       ambiguous += 1
+
+      const pending = PartyLootStorage.pendingFor(sourceObjectId)
+      const sameType = pending.find((x) => x.itemNumId === itemNumIds[i])
+
+      Logger.debug('EvPartyLootItemTypesRemoved unmatched', {
+        wantedType: itemNumIds[i],
+        // Present with >1 name = genuine ambiguity. Absent while other types are
+        // pending = the two events disagree about what an "item type" is.
+        sameTypePending: sameType ?? null,
+        pendingTypes: pending.slice(0, 8).map((x) => x.itemNumId),
+        pendingCount: pending.length
+      })
+
       continue
     }
 
