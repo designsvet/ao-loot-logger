@@ -37,7 +37,7 @@ holds the chest's identifier rather than a player name.
 | source | who you can see | how |
 |---|---|---|
 | corpse / mob bag | **everyone nearby**, named | `EvOtherGrabbedLoot` (279) — proven live |
-| loot chest (Morgana camp, dungeon, random spawn) | **yourself, named; others named too when partied** | chest registers via `EvNewLootChest` (393) so your own pickups carry its real name; `PartyLootItems` (302) assigns each item to a player NAME and `PartyLootItemsRemoved` (303) commits it |
+| loot chest (Morgana camp, dungeon, random spawn) | **yourself, named; others named too when partied** | chest registers via `EvNewLootChest` (393) so your own pickups carry its real name; `PartyLootItems` (302) names a player per item — attribution is taken from there, since the removals identify items only by TYPE and cannot be matched when two members are owed the same type |
 | **territory / guild storage** | **everyone, named** | **the game's own per-chest log** (Actions → Chest Log on THAT chest) — better than capture, and no capture needed |
 
 Measured 2026-08-19: a `TREASURE_SOLO_UNCOMMON` chest logged own pickups under
@@ -55,6 +55,14 @@ containers anyway, as `looted_from = @UNKNOWN_CONTAINER`. Off by default on
 purpose: it would record gear you took OUT of guild storage as loot, which
 inflates what you "looted" and drags your donation compliance down in the bot's
 report. Use it for testing, not for a live raid.
+
+**Chest attribution has a condition: you must be IN the distribution.**
+Measured across five chests on 2026-08-19. When you take part, the assignment
+event names every item and every player (75 items / 75 names on one chest), and
+this fork writes a line per item for everyone but you. When you merely stand
+next to a chest that others empty, your client receives the chest's REGISTRATION
+and nothing else — no assignment, no removal, no names. So a member who wants
+the group's chest loot recorded has to be looting it too.
 
 **Other players' pickups — corpses AND chests, by two different events.**
 
