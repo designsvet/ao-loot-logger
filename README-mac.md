@@ -37,8 +37,13 @@ holds the chest's identifier rather than a player name.
 | source | who you can see | how |
 |---|---|---|
 | corpse / mob bag | **everyone nearby**, named | `EvOtherGrabbedLoot` (279) — proven live |
-| loot chest (Morgana camp, dungeon) | yourself; others unconfirmed | chest registers via `EvNewLootChest` (393) and its items carry its name |
+| loot chest (Morgana camp, dungeon, random spawn) | **yourself, named; others named too when partied** | chest registers via `EvNewLootChest` (393) so your own pickups carry its real name; `PartyLootItems` (302) assigns each item to a player NAME and `PartyLootItemsRemoved` (303) commits it |
 | **territory / guild storage** | **everyone, named** | **the game's own per-chest log** (Actions → Chest Log on THAT chest) — better than capture, and no capture needed |
+
+Measured 2026-08-19: a `TREASURE_SOLO_UNCOMMON` chest logged own pickups under
+its real name, and a party-loot assignment carried **14 items, 14 names**. Note
+the party pair also fires for MOB BAGS when you are in a party, duplicating
+`EvOtherGrabbedLoot` — so this fork takes the party path for CHESTS only.
 
 Territory storage is a *building with access control* (measured: every container
 attach there sits among `NewBuilding` / `AccessStatus` / `NewFortificationBuilding`,

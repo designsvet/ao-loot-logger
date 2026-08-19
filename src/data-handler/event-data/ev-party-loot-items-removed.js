@@ -20,6 +20,25 @@ function handle(event) {
   const { sourceObjectId, itemObjectIds } = parse(event)
 
   const container = MemoryStorage.containers.getById(sourceObjectId)
+
+  // In a party the server announces BAG loot both ways: EvOtherGrabbedLoot AND
+  // this party-loot pair. Measured 2026-08-19 — cefaf's and Momodin's silver
+  // bags each produced two identical lines 1-2ms apart. EvOtherGrabbedLoot is
+  // the older, better-understood path and covers corpses/mob bags for everyone
+  // nearby whether or not you are partied, so this path takes CHESTS only,
+  // which is exactly what EvOtherGrabbedLoot does not cover.
+  if (container != null && container.type !== 'chest') {
+    Logger.debug('EvPartyLootItemsRemoved skipping non-chest source', {
+      sourceObjectId,
+      type: container.type
+    })
+
+    for (const itemObjectId of itemObjectIds) {
+      PartyLootStorage.take(itemObjectId) // drop the assignment, do not log it
+    }
+
+    return
+  }
   // The chest's own identifier if EvNewLootChest registered it, else a stable
   // placeholder — the looted_from column must never be blank.
   const chestName = container?.owner ?? `@LOOTCHEST_${sourceObjectId}`
