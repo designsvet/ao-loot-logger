@@ -20,6 +20,7 @@ const EVENTS = {
   // from the reference enum's ordinals, calibrated against the ten codes above
   // which match it exactly at offset 0. They DRIFT between game patches — other
   // repos carry 300/301 and 297/298 — so re-derive rather than trusting a doc.
+  EvPartyLootSettingChangedPlayer: 237,
   EvPartyLootItems: 302,
   EvPartyLootItemsRemoved: 303,
   EvPartyLootItemTypesRemoved: 304,
