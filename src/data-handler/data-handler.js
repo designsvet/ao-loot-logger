@@ -130,13 +130,14 @@ class DataHandler {
           if (ChestWindow.shouldDump()) {
             Logger.debug('CHEST_WINDOW_EVENT', {
               code: eventId,
+              // EVERY parameter, not the first 16: the one time a dump carried a
+              // guild and alliance, the cap hid whatever followed — and a player
+              // NAME following a guild is exactly the thing being hunted.
               payload: Object.fromEntries(
-                Object.entries(event.parameters)
-                  .slice(0, 16)
-                  .map(([k, v]) => [
-                    k,
-                    Array.isArray(v) ? `array(${v.length}): ${v.slice(0, 6).join(',')}` : v
-                  ])
+                Object.entries(event.parameters).map(([k, v]) => [
+                  k,
+                  Array.isArray(v) ? `array(${v.length}): ${v.slice(0, 8).join(',')}` : v
+                ])
               )
             })
           }
