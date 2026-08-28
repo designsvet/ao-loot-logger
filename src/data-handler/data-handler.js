@@ -77,6 +77,12 @@ class DataHandler {
         case Config.events.EvDetachItemContainer:
           return EventData.EvDetachItemContainer.handle(event)
 
+        // Local patch: the daily bonus rotation. Both candidate codes land on one handler
+        // that rejects anything not shaped like FestivitiesUpdate (see the handler).
+        case Config.events.EvFestivitiesUpdate:
+        case Config.events.EvFestivitiesUpdateLegacy:
+          return EventData.EvFestivitiesUpdate.handle(event)
+
         case Config.events.EvCharacterStats:
           return EventData.EvCharacterStats.handle(event)
 
@@ -123,6 +129,11 @@ class DataHandler {
           // costs nothing during ordinary play. No special test run needed.
           namesInPayload(event)
 
+          // Local patch (ADR 0100): is this unhandled event the daily bonus rotation under a
+          // different number? Its shape is unmistakable, so one login answers the question the
+          // two wired candidates cannot.
+          EventData.EvFestivitiesUpdate.scan(event, 'event')
+
           // While a chest is in play, dump unhandled events IN FULL. This is the
           // only shape of evidence that can answer "does anything name an
           // out-of-party looter" — key-only logs and a known-player matcher both
@@ -160,6 +171,7 @@ class DataHandler {
           return RequestData.OpInventoryMoveItem.handle(event)
 
         default:
+          EventData.EvFestivitiesUpdate.scan(event, 'request')
           if (process.env.LOG_UNPROCESSED) Logger.silly('handleRequestData', event.parameters)
       }
     } catch (error) {
@@ -180,6 +192,7 @@ class DataHandler {
           return ResponseData.OpJoin.handle(event)
 
         default:
+          EventData.EvFestivitiesUpdate.scan(event, 'response')
           if (process.env.LOG_UNPROCESSED) Logger.silly('handleResponseData', event.parameters)
       }
     } catch (error) {

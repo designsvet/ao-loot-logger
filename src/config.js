@@ -26,6 +26,14 @@ const EVENTS = {
   EvPartyLootItemTypesRemoved: 304,
   EvNewLootChest: 393,
   EvUpdateLootChest: 394,
+  // Local patch: the daily bonus rotation (FestivitiesUpdate). TWO candidates, because the
+  // sources disagree and only live traffic settles it: 518 is the ordinal in the reference
+  // enum this table is calibrated against (which matches all twelve codes above exactly),
+  // 511 is an older IL2CPP dump of Albion.Common.dll. Both are dispatched to the same
+  // handler, which validates the payload's SHAPE and stays silent when it does not match —
+  // so the wrong number costs nothing and the right one works on whichever patch we are on.
+  EvFestivitiesUpdate: 518,
+  EvFestivitiesUpdateLegacy: 511,
   OpJoin: 2,
   OpInventoryMoveItem: 30
 }
