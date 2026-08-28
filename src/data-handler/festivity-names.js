@@ -1,5 +1,5 @@
 /**
- * Local patch (ADR 0100): every @uniquename Albion's festivities.json defines.
+ * Local patch (ADR 0102): every @uniquename Albion's festivities.json defines.
  *
  * Generated from the bot's festivityCatalog.ts. Used ONLY by the scanner in
  * ev-festivities-update.js: an event carrying one of these strings is the daily bonus

@@ -129,7 +129,7 @@ class DataHandler {
           // costs nothing during ordinary play. No special test run needed.
           namesInPayload(event)
 
-          // Local patch (ADR 0100): is this unhandled event the daily bonus rotation under a
+          // Local patch (ADR 0102): is this unhandled event the daily bonus rotation under a
           // different number? Its shape is unmistakable, so one login answers the question the
           // two wired candidates cannot.
           EventData.EvFestivitiesUpdate.scan(event, 'event')
