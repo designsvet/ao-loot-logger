@@ -72,11 +72,21 @@ you empty it). Ten minutes after the last chest, an ownerless pickup is dropped
 again, which is the right answer for a deposit, a bank withdrawal or a mount-bag
 shuffle. `npm test` pins it, the hideout case included.
 
-One narrow case survives by design: moving items into a bag while literally
-standing at a chest you looted seconds ago is still indistinguishable from taking
-them out of it. Telling those apart needs the destination container to be
-identifiable as yours, and nothing measured so far says it is — so it is written
-down rather than guessed at.
+One attach may still re-arm the window: the chest's OWN container, resolved by the
+id `EvNewLootChest` registered it under, so it carries that chest's name. Measured
+in a real capture — a Keeper camp chest logged pickups 2m23s apart — and it cannot
+fire on your bank, a mount bag or a hideout chest, all of which attach with no
+owner, which is exactly why an ownerless pickup is dropped in the first place.
+
+Two cases survive by design, written down rather than guessed at. Moving items into
+a bag while literally standing at a chest you looted seconds ago is still
+indistinguishable from taking them out of it. And **a pickup that merges into a
+stack you already hold is written twice** — measured 2026-08-29: five chest pickups
+each produced a second line at the same millisecond carrying the merged total (`10`
+then `14` potions; `1` then `2` jackets). The second line is your own pre-existing
+stack being re-announced while the chest window is legitimately open, so no amount
+of window tightening reaches it. Both need the destination container to be
+identifiable as yours, and nothing measured so far provides it.
 
 **Chest attribution depends on the party's LOOT MODE — this is the big one.**
 
