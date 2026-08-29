@@ -50,6 +50,16 @@ function handle(event) {
     container.items[position] = loot
   }
 
+  // The one attach that MAY re-arm attribution: this container resolved to a
+  // chest that named itself (EvNewLootChest registered it and the ids matched).
+  // Emptying one chest takes minutes and its contents re-attach as you go, so
+  // without this a long chest keeps only a 90-second window. It cannot fire on
+  // your bank, a mount bag or a hideout chest: those attach with no owner,
+  // which is exactly why an ownerless pickup is dropped in the first place.
+  if (container.owner) {
+    ChestWindow.named(container.owner)
+  }
+
   Logger.debug('EvAttachItemContainer', container, event.parameters)
 }
 

@@ -114,3 +114,41 @@ test('a pickup from a corpse is unaffected by any of this', (t) => {
   assert.equal(s.written.length, 1)
   assert.equal(s.written[0].lootedFrom.playerName, 'DeadGuy')
 })
+
+test('a chest re-attaching as you empty it keeps its own name armed', (t) => {
+  const s = session(t)
+
+  // Measured in a real capture (2026-08-29): a Keeper camp chest logged pickups
+  // at 19:02:11 and again at 19:05:08 — 2m23s later, well past the window. The
+  // chest's own container re-attaches as its contents change, and only that
+  // attach may re-arm: it resolves to the container EvNewLootChest registered,
+  // so it carries the chest's name.
+  s.EvNewLootChest.handle(newLootChestEvent(900, CHEST))
+
+  for (let i = 0; i < 10; i++) {
+    s.clock.advance(15_000)
+    s.EvAttachItemContainer.handle(attachEvent(900))
+  }
+
+  s.EvInventoryPutItem.handle(putItemEvent(7))
+
+  assert.equal(s.written.length, 1)
+  assert.equal(s.written[0].lootedFrom.playerName, CHEST)
+})
+
+test('an ownerless container re-attaching never re-arms attribution', (t) => {
+  const s = session(t)
+
+  s.EvNewLootChest.handle(newLootChestEvent(900, CHEST))
+
+  // Your bank, a mount bag, a hideout chest: they attach under their own
+  // container id and carry no owner, so they are activity and nothing more.
+  for (let i = 0; i < 10; i++) {
+    s.clock.advance(15_000)
+    s.EvAttachItemContainer.handle(attachEvent(4242))
+  }
+
+  s.EvInventoryPutItem.handle(putItemEvent(7))
+
+  assert.deepEqual(s.written, [])
+})
