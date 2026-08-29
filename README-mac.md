@@ -56,6 +56,28 @@ purpose: it would record gear you took OUT of guild storage as loot, which
 inflates what you "looted" and drags your donation compliance down in the bot's
 report. Use it for testing, not for a live raid.
 
+**Deposits are not loot, and for a while they were logged as loot.** Reported
+2026-08-29: items dropped INTO a hideout chest turned up in the log as pickups.
+`EvInventoryPutItem` fires for every container the client is watching, not just
+your backpack, and carries no direction — taking an item out of a chest and
+dropping one in arrive identically. The only thing keeping a deposit out of the
+log is that it has no owner and no chest is in play; the chest window had stopped
+being able to say "no chest is in play", because EVERY container attach extended
+it, so a chest name from an earlier raid stayed "recent" for as long as you kept
+opening containers — including the hideout chest you were depositing into.
+
+Now two separate clocks: any container activity opens the debug-dump window, and
+only a chest that NAMES itself arms attribution (re-armed by that same chest while
+you empty it). Ten minutes after the last chest, an ownerless pickup is dropped
+again, which is the right answer for a deposit, a bank withdrawal or a mount-bag
+shuffle. `npm test` pins it, the hideout case included.
+
+One narrow case survives by design: moving items into a bag while literally
+standing at a chest you looted seconds ago is still indistinguishable from taking
+them out of it. Telling those apart needs the destination container to be
+identifiable as yours, and nothing measured so far says it is — so it is written
+down rather than guessed at.
+
 **Chest attribution depends on the party's LOOT MODE — this is the big one.**
 
 | party loot mode | what a chest tells your client |

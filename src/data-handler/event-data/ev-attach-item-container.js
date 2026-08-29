@@ -7,6 +7,10 @@ const ParserError = require('../parser-error')
 const name = 'EvAttachItemContainer'
 
 function handle(event) {
+  // Activity, not attribution. This fires for EVERY container you open —
+  // your bank, a mount bag, the hideout chest you are depositing into — so
+  // it may open the debug-dump window and nothing else. It used to extend the
+  // chest-name window too, which is how a deposit was logged as chest loot.
   ChestWindow.touch()
 
   Logger.debug('EvAttachItemContainer', event.parameters)

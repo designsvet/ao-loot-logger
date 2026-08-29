@@ -25,7 +25,9 @@ function handle(event) {
     container.type = type
   }
 
-  ChestWindow.touch(container.owner)
+  // The chest named itself: arm attribution, so a pickup in the next seconds
+  // can honestly say where it came from.
+  ChestWindow.named(container.owner)
 
   Logger.debug('EvNewLootChest', container, event.parameters)
 }
