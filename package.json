@@ -13,6 +13,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
+    "test": "node --test 'test/*.test.js'",
     "semantic-release": "semantic-release"
   },
   "author": {

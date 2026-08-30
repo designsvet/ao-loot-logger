@@ -7,6 +7,10 @@ const ParserError = require('../parser-error')
 const name = 'EvAttachItemContainer'
 
 function handle(event) {
+  // Activity, not attribution. This fires for EVERY container you open —
+  // your bank, a mount bag, the hideout chest you are depositing into — so
+  // it may open the debug-dump window and nothing else. It used to extend the
+  // chest-name window too, which is how a deposit was logged as chest loot.
   ChestWindow.touch()
 
   Logger.debug('EvAttachItemContainer', event.parameters)
@@ -44,6 +48,16 @@ function handle(event) {
     }
 
     container.items[position] = loot
+  }
+
+  // The one attach that MAY re-arm attribution: this container resolved to a
+  // chest that named itself (EvNewLootChest registered it and the ids matched).
+  // Emptying one chest takes minutes and its contents re-attach as you go, so
+  // without this a long chest keeps only a 90-second window. It cannot fire on
+  // your bank, a mount bag or a hideout chest: those attach with no owner,
+  // which is exactly why an ownerless pickup is dropped in the first place.
+  if (container.owner) {
+    ChestWindow.named(container.owner)
   }
 
   Logger.debug('EvAttachItemContainer', container, event.parameters)

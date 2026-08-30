@@ -40,6 +40,16 @@ function handle(event) {
   // dropping the pickup: EvNewLootChest registers by OBJECT id while the items
   // arrive under a CONTAINER id, and when those do not match the item carries no
   // owner. Measured 2026-08-19: five pickups from a real chest logged nothing.
+  //
+  // This event fires for EVERY container the client is watching, not just your
+  // backpack, and carries no direction — "I took this out of the chest" and "I
+  // dropped this into the chest" arrive identically. All that keeps a deposit out
+  // of the log is the guard below: no owner, no recent chest, nothing written.
+  // So the chest window has to be a real window. Reported 2026-08-29: items
+  // dropped into a hideout chest were logged as loot, because every container
+  // attach extended the window and a chest name from an earlier raid never went
+  // stale. Fixed in chest-window.js — attribution is armed by a named chest and
+  // by nothing else.
   const recentChest = ChestWindow.recentChestName()
 
   if (!loot.owner && recentChest == null && !process.env.LOG_UNKNOWN_SOURCE) {

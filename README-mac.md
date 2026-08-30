@@ -56,6 +56,47 @@ purpose: it would record gear you took OUT of guild storage as loot, which
 inflates what you "looted" and drags your donation compliance down in the bot's
 report. Use it for testing, not for a live raid.
 
+**Deposits are not loot, and for a while they were logged as loot.** Reported
+2026-08-29: items dropped INTO a hideout chest turned up in the log as pickups.
+`EvInventoryPutItem` fires for every container the client is watching, not just
+your backpack, and carries no direction — taking an item out of a chest and
+dropping one in arrive identically. The only thing keeping a deposit out of the
+log is that it has no owner and no chest is in play; the chest window had stopped
+being able to say "no chest is in play", because EVERY container attach extended
+it, so a chest name from an earlier raid stayed "recent" for as long as you kept
+opening containers — including the hideout chest you were depositing into.
+
+Now two separate clocks: any container activity opens the debug-dump window, and
+only a chest that NAMES itself arms attribution (re-armed by that same chest while
+you empty it). Ten minutes after the last chest, an ownerless pickup is dropped
+again, which is the right answer for a deposit, a bank withdrawal or a mount-bag
+shuffle. `npm test` pins it, the hideout case included.
+
+One attach may still re-arm the window: the chest's OWN container, resolved by the
+id `EvNewLootChest` registered it under, so it carries that chest's name. Measured
+in a real capture — a Keeper camp chest logged pickups 2m23s apart — and it cannot
+fire on your bank, a mount bag or a hideout chest, all of which attach with no
+owner, which is exactly why an ownerless pickup is dropped in the first place.
+
+Two cases survive by design, written down rather than guessed at. Moving items into
+a bag while literally standing at a chest you looted seconds ago is still
+indistinguishable from taking them out of it. And **a pickup that merges into a
+stack you already hold is written twice** — measured 2026-08-29: five chest pickups
+each produced a second line at the same millisecond carrying the merged total (`10`
+then `14` potions; `1` then `2` jackets). The second line is your own pre-existing
+stack being re-announced while the chest window is legitimately open, so no amount
+of window tightening reaches it. Both need the destination container to be
+identifiable as yours, and nothing measured so far provides it.
+
+**An item the table does not know is still logged.** `Items.init()` fetches
+ao-bin-dumps at startup and falls back to a list frozen at build time, so for a
+few hours after every game patch a new item has no name here. Your OWN pickups
+of such an item used to be dropped with only a console warning, while ANOTHER
+player's were logged as `UNKNOWN_<id>` — so a member could donate gear that never
+appeared in their looted column. Both paths now fall back the same way: an
+unnamed item is honest and joinable by id downstream, a missing one is not
+recoverable at all.
+
 **Chest attribution depends on the party's LOOT MODE — this is the big one.**
 
 | party loot mode | what a chest tells your client |
