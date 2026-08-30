@@ -88,6 +88,15 @@ stack being re-announced while the chest window is legitimately open, so no amou
 of window tightening reaches it. Both need the destination container to be
 identifiable as yours, and nothing measured so far provides it.
 
+**An item the table does not know is still logged.** `Items.init()` fetches
+ao-bin-dumps at startup and falls back to a list frozen at build time, so for a
+few hours after every game patch a new item has no name here. Your OWN pickups
+of such an item used to be dropped with only a console warning, while ANOTHER
+player's were logged as `UNKNOWN_<id>` — so a member could donate gear that never
+appeared in their looted column. Both paths now fall back the same way: an
+unnamed item is honest and joinable by id downstream, a missing one is not
+recoverable at all.
+
 **Chest attribution depends on the party's LOOT MODE — this is the big one.**
 
 | party loot mode | what a chest tells your client |

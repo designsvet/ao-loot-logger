@@ -19,6 +19,8 @@ const fresh = () => {
     EvAttachItemContainer: require('../src/data-handler/event-data/ev-attach-item-container'),
     EvInventoryPutItem: require('../src/data-handler/event-data/ev-inventory-put-item'),
     EvNewLootChest: require('../src/data-handler/event-data/ev-new-loot-chest'),
+    EvNewSimpleItem: require('../src/data-handler/event-data/ev-new-simple-item'),
+    EvNewEquipmentItem: require('../src/data-handler/event-data/ev-new-equipment-item'),
     EvUpdateLootChest: require('../src/data-handler/event-data/ev-update-loot-chest')
   }
 }
