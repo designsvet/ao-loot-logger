@@ -60,8 +60,14 @@ It is **off unless you arm it**, and it writes your guild's data to a file in th
 working directory. Read that file before you send it anywhere.
 
 ```sh
-HIGHLIGHT=1291,5,11 sudo -E node src/index.js
+ALBION_IFACE=en0 HIGHLIGHT=1291,5,11 node src/index.js
 ```
+
+`ALBION_IFACE` limits the capture to one interface. Every listener takes its own
+`/dev/bpfN`, those are root-only until the boot daemon relaxes them, and a Mac with a
+VPN and virtual adapters has a dozen interfaces — so listening to all of them can run
+out of usable devices and fail with `Permission denied` on a device number nobody has
+heard of. `route -n get default | grep interface` names the one carrying the game.
 
 Then press **`g`** and open the screen you want explained. The window records every
 event, request and response for 120 seconds into `guild-dump-<timestamp>.jsonl`, then
