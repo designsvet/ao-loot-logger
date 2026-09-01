@@ -8,3 +8,9 @@ dist/
 *.log
 *.error
 *.exe
+
+# Raw packet recordings from the dump tool. They contain a guild private data —
+# member names, energy amounts, guild and player ids — and must never be committed.
+guild-dump-*.jsonl
+loot-events-*.txt
+debug-logs.txt*
