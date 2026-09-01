@@ -58,6 +58,8 @@ class Config {
 
     this.ROTATE_LOGGER_FILE_KEY = 'd'
     this.RESTART_NETWORK_FILE_KEY = 'r'
+    // Local patch: arm the guild-screen packet dump (src/storage/dump-window.js).
+    this.DUMP_PACKETS_KEY = 'g'
     this.TITLE = `AO Loot Logger - v${version}`
   }
 }

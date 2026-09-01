@@ -6,6 +6,8 @@ const MemoryStorage = require('../storage/memory-storage')
 const ChestWindow = require('../storage/chest-window')
 const ParserError = require('./parser-error')
 const Config = require('../config')
+const DumpWindow = require('../storage/dump-window')
+const PacketDump = require('../utils/packet-dump')
 
 
 /**
@@ -40,6 +42,14 @@ class DataHandler {
       // Remove or comment out after confirming everything works
 
       const eventId = event?.parameters?.[252]
+
+      // Local patch: the guild-screen instrument. Ahead of the switch on purpose —
+      // a packet we already handle for another reason is still a packet the guild
+      // screen might be reading, and dumping only the `default` branch would hide
+      // exactly those. Costs one boolean while the window is shut.
+      if (DumpWindow.shouldDump()) {
+        PacketDump.write('event', eventId, event.parameters)
+      }
 
       // Protocol 18 fix: eventCode in header may not always be 1
       // We filter by checking if parameters[252] exists (event ID parameter)
@@ -168,6 +178,13 @@ class DataHandler {
   static handleRequestData(event) {
     const eventId = event?.parameters?.[253]
 
+    // Local patch: requests matter as much as responses here — the request is what
+    // NAMES the operation you just triggered, so pressing the log button and seeing
+    // one outgoing code is how the response beside it gets identified.
+    if (DumpWindow.shouldDump()) {
+      PacketDump.write('request', eventId, event?.parameters ?? {})
+    }
+
     try {
       switch (eventId) {
         case Config.events.OpInventoryMoveItem:
@@ -193,6 +210,13 @@ class DataHandler {
 
   static handleResponseData(event) {
     const eventId = event?.parameters?.[253]
+
+    // Local patch: the likeliest carrier. The screen's numbers answer a request the
+    // client just made, and unhandled responses have only ever gone to `silly` —
+    // console-only, so nothing about them survived the session.
+    if (DumpWindow.shouldDump()) {
+      PacketDump.write('response', eventId, event?.parameters ?? {})
+    }
 
     try {
       switch (eventId) {
