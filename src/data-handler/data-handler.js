@@ -91,6 +91,7 @@ class DataHandler {
         // that rejects anything not shaped like FestivitiesUpdate (see the handler).
         case Config.events.EvFestivitiesUpdate:
         case Config.events.EvFestivitiesUpdateLegacy:
+        case Config.events.EvFestivitiesUpdateLegacy2:
           return EventData.EvFestivitiesUpdate.handle(event)
 
         case Config.events.EvGuildState:

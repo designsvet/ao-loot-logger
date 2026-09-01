@@ -118,6 +118,9 @@ function handle(event) {
       // Absent only if a page somehow arrives before its own request was seen. The reader
       // must refuse an unattributed page rather than guess whose log it is.
       albionGuildId: GuildIdentity.getGuildId(),
+      // From the REQUEST: operation 159 serves several guild logs in one shape, and the
+      // response says nothing about which. The reader decides what it will accept.
+      logType: GuildIdentity.getLogType(),
       rows
     })}`
   )

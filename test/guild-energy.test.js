@@ -301,3 +301,91 @@ test('a request that is not a log fetch forgets nothing', (t) => {
 
   assert.equal(GuildIdentity.getGuildId(), null)
 })
+
+/**
+ * The daily-bonus rotation, VERBATIM from the live client on 2026-09-01 — the recording that
+ * explained why the board had been silent since 30 August. The code moved 518 -> 519 and
+ * nothing else changed; these are the bonuses the game's own Activities panel showed at the
+ * same moment (Draconic Surge, +10% Fiber, +10% Nature Staff).
+ */
+const FESTIVITIES_519 = {
+  parameters: {
+    0: [1, 0, 2, 2],
+    1: ['ACTIVITIES', '', 'GENERAL', 'GENERAL'],
+    2: [
+      'DRAGON_AREA_AND_DUNGEON_LAUNCH_EVENT',
+      'CRYSTAL_CREATURE_POST_BLOCKER',
+      'COMMON_FIBER',
+      'COMMON_NATURESTAFF'
+    ],
+    3: [639237672000000000, 639237672000000000, 639238536000000000, 639238536000000000],
+    4: [639243720000000000, 639283464000000000, 639239400000000000, 639239400000000000],
+    252: 519
+  }
+}
+
+test('the rotation is read under its new code', (t) => {
+  const { EvFestivitiesUpdate } = fresh()
+  const lines = captureInfo(t)
+
+  EvFestivitiesUpdate.handle(FESTIVITIES_519)
+
+  const payload = parseLine(lines[0], 'festivities')
+
+  assert.equal(payload.code, 519)
+  assert.equal(payload.entries.length, 4)
+  assert.deepEqual(
+    payload.entries.map((e) => e.uniqueName),
+    [
+      'DRAGON_AREA_AND_DUNGEON_LAUNCH_EVENT',
+      'CRYSTAL_CREATURE_POST_BLOCKER',
+      'COMMON_FIBER',
+      'COMMON_NATURESTAFF'
+    ]
+  )
+  // Ticks pass through unconverted, as they always have.
+  assert.equal(payload.entries[2].startTicks, 639238536000000000)
+  // An EMPTY category is real — the seasonal row carries none. Recorded, not a fault.
+  assert.equal(payload.entries[1].category, '')
+})
+
+test('the router still reaches the handler for all three wired codes', () => {
+  const Config = require('../src/config')
+
+  assert.equal(Config.events.EvFestivitiesUpdate, 519)
+  assert.equal(Config.events.EvFestivitiesUpdateLegacy, 518)
+  assert.equal(Config.events.EvFestivitiesUpdateLegacy2, 511)
+})
+
+test('a page says WHICH log it is, taken from the request', (t) => {
+  const { OpGuildLogPage, OpGuildLogRequest } = fresh()
+  const lines = captureInfo(t)
+
+  OpGuildLogRequest.handle({ parameters: { ...LOG_REQUEST.parameters, 1: 2 } })
+  OpGuildLogPage.handle(LOG_PAGE)
+
+  assert.equal(parseLine(lines[0], 'energy-log').logType, 2)
+})
+
+test('a different log under the same operation is reported as different', (t) => {
+  const { OpGuildLogPage, OpGuildLogRequest } = fresh()
+  const lines = captureInfo(t)
+
+  // This is the whole point. Operation 159 serves whichever guild log the player opened, in an
+  // IDENTICAL shape — a real guild's SILVER account log was imported as energy because nothing
+  // said which it was. The reader refuses what it does not recognise; it can only do that if
+  // the engine passes this through.
+  OpGuildLogRequest.handle({ parameters: { ...LOG_REQUEST.parameters, 1: 7 } })
+  OpGuildLogPage.handle(LOG_PAGE)
+
+  assert.equal(parseLine(lines[0], 'energy-log').logType, 7)
+})
+
+test('a page with no request behind it claims no log type', (t) => {
+  const { OpGuildLogPage } = fresh()
+  const lines = captureInfo(t)
+
+  OpGuildLogPage.handle(LOG_PAGE)
+
+  assert.equal(parseLine(lines[0], 'energy-log').logType, null)
+})
