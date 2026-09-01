@@ -19,6 +19,8 @@ const fresh = () => {
     OpGuildEnergyDrain: require('../src/data-handler/response-data/op-guild-energy-drain'),
     OpGuildLogPage: require('../src/data-handler/response-data/op-guild-log-page'),
     OpGuildLogRequest: require('../src/data-handler/request-data/op-guild-log-request'),
+    DumpWindow: require('../src/storage/dump-window'),
+    PacketDump: require('../src/utils/packet-dump'),
     MemoryStorage: require('../src/storage/memory-storage'),
     LootLogger: require('../src/loot-logger'),
     EvAttachItemContainer: require('../src/data-handler/event-data/ev-attach-item-container'),

@@ -46,7 +46,20 @@ class AlbionNetwork extends PhotonParser {
   init() {
     const infos = []
 
+    // Local patch: ALBION_IFACE=en0 listens on ONE interface instead of every
+    // IPv4 one. macOS gives each listener its own /dev/bpfN, those are root-only
+    // until the boot daemon relaxes them, and a Mac with VPN and virtual adapters
+    // has a dozen interfaces — so a machine that also runs Guild Butler Capture
+    // can exhaust the relaxed devices and fail with "Permission denied" on a
+    // device number nobody has heard of. One interface needs one device.
+    // `route -n get default | grep interface` names the one carrying the game.
+    const only = (process.env.ALBION_IFACE ?? '').trim()
+
     for (const device of Cap.deviceList()) {
+      if (only !== '' && device.name !== only) {
+        continue
+      }
+
       for (const address of device.addresses) {
         if (address.addr.match(/\d+\.\d+\.\d+\.\d+/)) {
           const name = []
@@ -62,6 +75,18 @@ class AlbionNetwork extends PhotonParser {
           infos.push({ addr: address.addr, name: name.join(' - ') })
         }
       }
+    }
+
+    if (infos.length === 0) {
+      // Silence here reads as "Albion is not running" when the truth is "we are
+      // not listening to anything" — two very different problems (see ADR 0062).
+      Logger.warn(
+        only !== ''
+          ? `ALBION_IFACE=${only} matched no interface with an IPv4 address. Available: ${Cap.deviceList()
+              .map((d) => d.name)
+              .join(', ')}`
+          : 'No interface with an IPv4 address to listen on.'
+      )
     }
 
     for (const info of infos) {

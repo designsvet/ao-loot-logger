@@ -18,6 +18,8 @@ const checkNewVersion = require('./check-new-version')
 const DataHandler = require('./data-handler/data-handler')
 const Items = require('./items')
 const KeyboardInput = require('./keyboard-input')
+const DumpWindow = require('./storage/dump-window')
+const PacketDump = require('./utils/packet-dump')
 
 const Config = require('./config')
 
@@ -77,6 +79,10 @@ async function main() {
       case Config.ROTATE_LOGGER_FILE_KEY.toLocaleLowerCase():
       case Config.ROTATE_LOGGER_FILE_KEY.toUpperCase():
         return rotateLogFile()
+
+      case Config.DUMP_PACKETS_KEY.toLocaleLowerCase():
+      case Config.DUMP_PACKETS_KEY.toUpperCase():
+        return armPacketDump()
     }
   })
 
@@ -90,10 +96,48 @@ async function main() {
     '',
     `You can always press "${Config.ROTATE_LOGGER_FILE_KEY}" to start a new log file.`,
     '',
+    `Press "${Config.DUMP_PACKETS_KEY}" to record ${DumpWindow.WINDOW_MS / 1000}s of raw packets to a file (guild-screen investigation; off by default).`,
+    '',
     `Join the Discord server: ${cyan('https://discord.gg/fvNMF2abXr')} (Ctrl + click to open).`,
     '',
     `${orange('AO Loot Logger Viewer can be found here:')} ${cyan('https://loot-logger.ddns.net/ao-loot-logger-viewer')} (Ctrl + click to open).`
   ].join('\n'))
+}
+
+/**
+ * Local patch: arm the guild-screen packet dump — see src/storage/dump-window.js.
+ *
+ * Off by default and bounded, because it writes your guild's data to a file. Arm it,
+ * then open the screen you want explained; the window closes on its own.
+ *
+ * Set HIGHLIGHT to the numbers you can SEE on that screen (HIGHLIGHT=1291,5,11) and
+ * every packet containing one is called out in the terminal as it arrives — which is
+ * the difference between reading one line and grepping five thousand.
+ */
+function armPacketDump() {
+  const seconds = DumpWindow.arm()
+
+  console.info(
+    [
+      '',
+      `\t${green('RECORDING PACKETS')} for ${seconds}s — open the guild screen now.`,
+      PacketDump.highlights.size > 0
+        ? `\tWatching for: ${[...PacketDump.highlights].join(', ')}`
+        : `\tTip: restart with HIGHLIGHT=<numbers from the screen> to have matches called out here.`,
+      ''
+    ].join('\n')
+  )
+
+  setTimeout(() => {
+    DumpWindow.disarm()
+    PacketDump.close()
+
+    const file = PacketDump.currentFileName()
+
+    console.info(
+      `\n\t${green('RECORDING DONE')} — ${DumpWindow.written()} packets${file ? ` → ${cyan(file)}` : ' (nothing arrived)'}\n`
+    )
+  }, DumpWindow.WINDOW_MS).unref()
 }
 
 // Local patch: one line a minute, so "is this thing on?" is answerable without
