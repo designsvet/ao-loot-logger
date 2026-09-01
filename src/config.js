@@ -34,6 +34,15 @@ const EVENTS = {
   // so the wrong number costs nothing and the right one works on whichever patch we are on.
   EvFestivitiesUpdate: 518,
   EvFestivitiesUpdateLegacy: 511,
+  // Local patch: the guild's siphoned-energy total and the guild screen's drain
+  // block. Both codes were READ off the live client on 2026-09-01 (see the
+  // guild-energy-dump investigation), not derived from the reference enum — its
+  // ordinals for these did not line up, which is the same drift the note above
+  // warns about. Both handlers validate the payload's SHAPE and stay silent when it
+  // does not match, so a patch that renumbers them degrades to no data rather than
+  // to wrong data.
+  EvGuildState: 103,
+  OpGuildEnergyDrain: 414,
   OpJoin: 2,
   OpInventoryMoveItem: 30
 }

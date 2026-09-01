@@ -83,6 +83,9 @@ class DataHandler {
         case Config.events.EvFestivitiesUpdateLegacy:
           return EventData.EvFestivitiesUpdate.handle(event)
 
+        case Config.events.EvGuildState:
+          return EventData.EvGuildState.handle(event)
+
         case Config.events.EvCharacterStats:
           return EventData.EvCharacterStats.handle(event)
 
@@ -190,6 +193,9 @@ class DataHandler {
       switch (eventId) {
         case Config.events.OpJoin:
           return ResponseData.OpJoin.handle(event)
+
+        case Config.events.OpGuildEnergyDrain:
+          return ResponseData.OpGuildEnergyDrain.handle(event)
 
         default:
           EventData.EvFestivitiesUpdate.scan(event, 'response')
