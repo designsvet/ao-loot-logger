@@ -83,6 +83,9 @@ class DataHandler {
         case Config.events.EvFestivitiesUpdateLegacy:
           return EventData.EvFestivitiesUpdate.handle(event)
 
+        case Config.events.EvGuildState:
+          return EventData.EvGuildState.handle(event)
+
         case Config.events.EvCharacterStats:
           return EventData.EvCharacterStats.handle(event)
 
@@ -170,6 +173,11 @@ class DataHandler {
         case Config.events.OpInventoryMoveItem:
           return RequestData.OpInventoryMoveItem.handle(event)
 
+        // Both carry the guild id; only this side of the exchange does.
+        case Config.events.OpGuildLogPage:
+        case Config.events.OpGuildLogPageLarge:
+          return RequestData.OpGuildLogRequest.handle(event)
+
         default:
           EventData.EvFestivitiesUpdate.scan(event, 'request')
           if (process.env.LOG_UNPROCESSED) Logger.silly('handleRequestData', event.parameters)
@@ -190,6 +198,12 @@ class DataHandler {
       switch (eventId) {
         case Config.events.OpJoin:
           return ResponseData.OpJoin.handle(event)
+
+        case Config.events.OpGuildEnergyDrain:
+          return ResponseData.OpGuildEnergyDrain.handle(event)
+
+        case Config.events.OpGuildLogPage:
+          return ResponseData.OpGuildLogPage.handle(event)
 
         default:
           EventData.EvFestivitiesUpdate.scan(event, 'response')

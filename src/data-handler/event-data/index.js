@@ -2,6 +2,7 @@ const EvAttachItemContainer = require('./ev-attach-item-container')
 const EvCharacterStats = require('./ev-characters-stats')
 const EvDetachItemContainer = require('./ev-detach-item-container')
 const EvFestivitiesUpdate = require('./ev-festivities-update')
+const EvGuildState = require('./ev-guild-state')
 const EvInventoryPutItem = require('./ev-inventory-put-item')
 const EvNewCharacter = require('./ev-new-character')
 const EvNewEquipmentItem = require('./ev-new-equipment-item')
@@ -18,6 +19,7 @@ const EvUpdateLootChest = require('./ev-update-loot-chest')
 
 module.exports = {
   EvAttachItemContainer,
+  EvGuildState,
   EvCharacterStats,
   EvDetachItemContainer,
   EvFestivitiesUpdate,
