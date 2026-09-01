@@ -21,6 +21,9 @@ function handle(event) {
   }
 
   GuildIdentity.setGuildId(albionGuildId)
+  // Which log was asked for. The response is identical whichever it is, so this is the only
+  // chance to record it — see the note in storage/guild-identity.js.
+  GuildIdentity.setLogType(event.parameters[1])
 }
 
 module.exports = { name, handle }

@@ -16,6 +16,7 @@ const fresh = () => {
     ChestWindow: require('../src/storage/chest-window'),
     GuildIdentity: require('../src/storage/guild-identity'),
     EvGuildState: require('../src/data-handler/event-data/ev-guild-state'),
+    EvFestivitiesUpdate: require('../src/data-handler/event-data/ev-festivities-update'),
     OpGuildEnergyDrain: require('../src/data-handler/response-data/op-guild-energy-drain'),
     OpGuildLogPage: require('../src/data-handler/response-data/op-guild-log-page'),
     OpGuildLogRequest: require('../src/data-handler/request-data/op-guild-log-request'),

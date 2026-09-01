@@ -32,8 +32,15 @@ const EVENTS = {
   // 511 is an older IL2CPP dump of Albion.Common.dll. Both are dispatched to the same
   // handler, which validates the payload's SHAPE and stays silent when it does not match —
   // so the wrong number costs nothing and the right one works on whichever patch we are on.
-  EvFestivitiesUpdate: 518,
-  EvFestivitiesUpdateLegacy: 511,
+  // 2026-09-01: the code moved 518 -> 519. Read off the live client with the packet
+  // dumper after the daily-bonus board went silent for two days — the payload is
+  // UNCHANGED (five parallel arrays, same fields), only the ordinal moved, which is the
+  // drift the note at the top of this file warns about. Both previous codes stay wired:
+  // the handler validates the payload's shape and stays silent on a mismatch, so an old
+  // code that now belongs to something else costs nothing.
+  EvFestivitiesUpdate: 519,
+  EvFestivitiesUpdateLegacy: 518,
+  EvFestivitiesUpdateLegacy2: 511,
   // Local patch: the guild's siphoned-energy total and the guild screen's drain
   // block. Both codes were READ off the live client on 2026-09-01 (see the
   // guild-energy-dump investigation), not derived from the reference enum — its

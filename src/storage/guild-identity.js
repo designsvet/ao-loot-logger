@@ -12,6 +12,16 @@
  */
 
 let albionGuildId = null;
+/**
+ * Which guild log the last fetch asked for.
+ *
+ * Operation 159 does not serve one log — it serves whichever the player opened, in an
+ * IDENTICAL shape. A real guild's SILVER account log was imported as energy on 2026-09-01
+ * because nothing on the response says which it is, and nothing here was asking. The request
+ * is the only place the distinction appears, so it is remembered here with the guild id and
+ * stamped onto the page, and the reader refuses a log it does not recognise.
+ */
+let logType = null;
 
 const setGuildId = (id) => {
   if (typeof id === 'string' && id.length > 0) {
@@ -21,8 +31,15 @@ const setGuildId = (id) => {
 
 const getGuildId = () => albionGuildId;
 
-const reset = () => {
-  albionGuildId = null;
+const setLogType = (value) => {
+  logType = Number.isInteger(value) ? value : null;
 };
 
-module.exports = { setGuildId, getGuildId, reset };
+const getLogType = () => logType;
+
+const reset = () => {
+  albionGuildId = null;
+  logType = null;
+};
+
+module.exports = { setGuildId, getGuildId, setLogType, getLogType, reset };
