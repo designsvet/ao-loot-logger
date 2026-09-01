@@ -43,6 +43,11 @@ const EVENTS = {
   // to wrong data.
   EvGuildState: 103,
   OpGuildEnergyDrain: 414,
+  // The guild log, fetched a page at a time as you scroll it. Request param 2 is the
+  // offset; the sibling 'large' operation (415 here) was requested twice in two
+  // recordings and answered NEITHER time, so paging this one is the only path.
+  OpGuildLogPage: 159,
+  OpGuildLogPageLarge: 160,
   OpJoin: 2,
   OpInventoryMoveItem: 30
 }

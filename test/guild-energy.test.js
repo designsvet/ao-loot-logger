@@ -195,3 +195,109 @@ test('the alliance id is not mistaken for the guild id', () => {
   // investigation actually made.
   assert.notEqual(guidToAlbionId(GUILD_STATE.parameters[17]), VITRYLA)
 })
+
+/**
+ * One page of the guild log, verbatim from the 2026-09-01 recording (first three rows of the
+ * first page). The screen's own log showed these three at the top: Generiess −10, KoNonG +6,
+ * ggpussy +99.
+ */
+const LOG_PAGE = {
+  parameters: {
+    0: ['Generiess', 'KoNonG', 'ggpussy'],
+    1: [3, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0],
+    2: ['', '', ''],
+    3: [-100000, 60000, 990000],
+    4: [639238458190780000, 639238452583926100, 639238428329135600],
+    253: 159
+  }
+}
+
+/** The request that produced it — param 0 is the guild, param 2 would be the page offset. */
+const LOG_REQUEST = {
+  parameters: {
+    0: [228, 231, 114, 118, 37, 191, 228, 70, 188, 251, 239, 178, 51, 123, 202, 45],
+    1: 2,
+    3: 101,
+    6: '',
+    7: 1,
+    253: 159
+  }
+}
+
+test('a log page is read as rows, uninterpreted', (t) => {
+  const { OpGuildLogPage } = fresh()
+  const lines = captureInfo(t)
+
+  OpGuildLogPage.handle(LOG_PAGE)
+
+  const payload = parseLine(lines[0], 'energy-log')
+
+  assert.equal(payload.rows.length, 3)
+  assert.deepEqual(payload.rows[0], {
+    playerName: 'Generiess',
+    type: 3,
+    note: '',
+    amountRaw: -100000,
+    ticks: 639238458190780000
+  })
+  // x10000 and ticks both pass through: 10 energy withdrawn, and a timestamp the reader
+  // must floor to the second before it can match the same row pasted by a human.
+  assert.equal(payload.rows[0].amountRaw / 10000, -10)
+  assert.equal(payload.rows[1].amountRaw / 10000, 6)
+  assert.equal(payload.rows[2].amountRaw / 10000, 99)
+})
+
+test('the request names the guild, and the page it produces carries it', (t) => {
+  const { OpGuildLogPage, OpGuildLogRequest, GuildIdentity } = fresh()
+  const lines = captureInfo(t)
+
+  OpGuildLogRequest.handle(LOG_REQUEST)
+  assert.equal(GuildIdentity.getGuildId(), VITRYLA)
+
+  OpGuildLogPage.handle(LOG_PAGE)
+  assert.equal(parseLine(lines[0], 'energy-log').albionGuildId, VITRYLA)
+})
+
+test('a page whose arrays do not line up prints nothing', (t) => {
+  const { OpGuildLogPage } = fresh()
+  const lines = captureInfo(t)
+
+  const base = LOG_PAGE.parameters
+
+  for (const params of [
+    { 253: 159 },
+    { ...base, 1: [3, 0, 0] }, // types must be FOUR per row
+    { ...base, 2: ['', ''] },
+    { ...base, 3: [-100000, 60000] },
+    { ...base, 4: [1, 2, 3] }, // ticks outside any plausible year
+    { ...base, 3: [-100001, 60000, 990000] }, // an amount that is not a whole energy unit
+    { ...base, 0: [] },
+    { ...base, 0: ['a', 'b', 3] }
+  ]) {
+    OpGuildLogPage.handle({ parameters: params })
+  }
+
+  assert.deepEqual(lines, [])
+})
+
+test('an unfamiliar row TYPE is passed through, not dropped', (t) => {
+  const { OpGuildLogPage } = fresh()
+  const lines = captureInfo(t)
+
+  // The paste path reports an unrecognised reason instead of importing it. A page silently
+  // missing rows would be indistinguishable from a quiet week, so the decision stays with
+  // the reader.
+  OpGuildLogPage.handle({ parameters: { ...LOG_PAGE.parameters, 1: [7, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0] } })
+
+  assert.equal(parseLine(lines[0], 'energy-log').rows[0].type, 7)
+})
+
+test('a request that is not a log fetch forgets nothing', (t) => {
+  const { OpGuildLogRequest, GuildIdentity } = fresh()
+
+  OpGuildLogRequest.handle({ parameters: { 0: [1, 2, 3] } })
+  OpGuildLogRequest.handle({ parameters: {} })
+  OpGuildLogRequest.handle(undefined)
+
+  assert.equal(GuildIdentity.getGuildId(), null)
+})
