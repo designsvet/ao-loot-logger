@@ -31,11 +31,22 @@ function serverToken() {
 /**
  * An item with no market value omits the parameter ENTIRELY — it does not send 0.
  *
- * Measured on a real capture (2026-08-28, 5,405 reveals): parameter 4 is absent on exactly
- * seven ids, every one of them genuinely untradeable — `T4/T5/T7/T8_SKILLBOOK_NONTRADABLE`,
- * `T6/T8_TRASH`, `QUESTITEM_TOKEN_SMUGGLER` — and present on all 3,785 equipment reveals.
- * Absent and zero must therefore stay distinguishable downstream: `null` here, never 0, since
- * "no market" and "worth nothing" are different claims about an item.
+ * Measured on a real capture (2026-08-28, one Europe session of 17 minutes): 5,405 parsed item
+ * reveals — 3,785 `EvNewEquipmentItem`, 1,616 `EvNewSimpleItem`, 4 `EvNewSiegeBannerItem`.
+ * Parameter 4 is present on 3,785/3,785 equipment reveals and absent on 147 simple ones, which
+ * are SEVEN ITEM IDS OBSERVED IN THAT CAPTURE at 21 reveals each: `T4/T5/T7/T8_SKILLBOOK_-`
+ * `NONTRADABLE`, `T6/T8_TRASH`, `QUESTITEM_TOKEN_SMUGGLER` — names as resolved by the BUNDLED
+ * `items-fallback.js`, which is the table that capture used; `items.js` fetches live
+ * ao-bin-dumps at startup and the two number the same items differently. The set is open, not
+ * closed: `T6_SKILLBOOK_NONTRADABLE` and `T7_TRASH` are obvious siblings that simply never
+ * appeared. And the implication runs one way only — `T4_SILVERBAG_NONTRADABLE` says
+ * NONTRADABLE in the game's own id and DOES carry a parameter 4 (exactly 10,000 silver), so
+ * absence means "the client sent no value", not "the item cannot be traded".
+ *
+ * The value `0` never appears: the smallest parameter 4 in 5,254 readings is 108,937, and the
+ * smallest parameter 5 in 2,945 is 29,827,959. Absent and zero must therefore stay
+ * distinguishable downstream — `null` here, never 0, since "no market" and "worth nothing" are
+ * different claims about an item.
  */
 function readValue(parameters, index) {
   const value = parameters[index]
