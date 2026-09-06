@@ -2,6 +2,7 @@ const MemoryStorage = require('../../storage/memory-storage')
 const Items = require('../../items')
 const Logger = require('../../utils/logger')
 const ParserError = require('../parser-error')
+const { printItemValue } = require('./item-value')
 
 const name = 'EvNewEquipmentItem'
 
@@ -24,7 +25,7 @@ const withFallback = (item, itemNumId) => {
 }
 
 function handle(event) {
-  const { objectId, itemNumId, quantity } = parse(event)
+  const { objectId, itemNumId, quantity, quality } = parse(event)
 
   const found = Items.get(itemNumId)
 
@@ -53,6 +54,9 @@ function handle(event) {
   }
 
   Logger.debug('EvNewEquipmentItem', loot, event.parameters)
+
+  // ADR 0110 Spike A: print only. Nothing above this line changed.
+  printItemValue({ itemId, quality, parameters: event.parameters })
 }
 
 function parse(event) {
@@ -75,7 +79,11 @@ function parse(event) {
   }
 
   // Parameter layout (current game version):
-  //   5: numeric value (optional, purpose unknown)
+  //   4: estimated MARKET value, silver x 10,000 (absent on untradeables — ADR 0110 Spike A)
+  //   5: estimated BLACK MARKET value, same scale; absent for items the BM does not deal in
+  //      (mounts, siege hammers, gatherer gear, crystal/Avalonian weapons). Named by measuring
+  //      it, not by guessing: it was "numeric value (optional, purpose unknown)" here until
+  //      2026-09-06, while SAT's NewEquipmentItemEvent.cs had read both by name for years.
   //   6: craftedBy (string, absent for non-crafted items e.g. mob drops)
   //   7: quality, 8: durability, 9: spells, 10: passives
   const craftedBy = event.parameters[6]

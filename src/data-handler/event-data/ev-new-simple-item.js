@@ -2,6 +2,7 @@ const MemoryStorage = require('../../storage/memory-storage')
 const Items = require('../../items')
 const Logger = require('../../utils/logger')
 const ParserError = require('../parser-error')
+const { printItemValue } = require('./item-value')
 
 const name = 'EvNewSimpleItem'
 
@@ -53,6 +54,11 @@ function handle(event) {
   }
 
   Logger.debug('EvNewSimpleItem', loot, event.parameters)
+
+  // ADR 0110 Spike A: print only. A simple item carries parameter 4 (estimated market value)
+  // and NEVER parameter 5 — measured 0/1,616 on a real capture, and SAT's NewSimpleItemEvent.cs
+  // reads no black-market field either. Quality is not on this event; a simple item has none.
+  printItemValue({ itemId, quality: null, parameters: event.parameters })
 }
 
 function parse(event) {
@@ -74,6 +80,9 @@ function parse(event) {
     throw new ParserError('EvNewSimpleItem has invalid quantity parameter')
   }
 
+  // Parameter 5 is `craftedBy` on the EQUIPMENT event; on this one it must not be a string.
+  // On simple items parameter 5 is absent altogether (0/1,616 on a real capture), so this
+  // guard is really asserting "this is not an equipment payload we have mis-dispatched".
   const craftedBy = event.parameters[5]
 
   if (typeof craftedBy === 'string') {
