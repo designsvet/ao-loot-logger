@@ -168,16 +168,34 @@ const write = (kind, id, parameters) => {
   }
 };
 
-const close = () => {
-  if (stream != null) {
-    stream.end();
-    stream = null;
+/**
+ * End the file and call back once its buffered writes are on disk. A session
+ * recording is closed on the way OUT of the process, and `process.exit` does not
+ * wait for a stream — an exit that raced the flush would lose the last seconds,
+ * which on a recording are the seconds the operator was looking at.
+ */
+const close = (done) => {
+  if (stream == null) {
+    if (done) {
+      done();
+    }
+
+    return;
   }
+
+  const ending = stream;
+
+  stream = null;
+  ending.end(() => {
+    if (done) {
+      done();
+    }
+  });
 };
 
 const currentFileName = () => fileName;
 
-module.exports = { write, close, currentFileName, highlights };
+module.exports = { write, close, open: openFile, currentFileName, highlights };
 
 // The serializer and the matcher are the only parts with a wrong answer available,
 // so they are reachable from a test without opening a file or a socket.
