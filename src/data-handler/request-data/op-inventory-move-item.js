@@ -3,6 +3,7 @@ const LootLogger = require('../../loot-logger')
 const uuidStringify = require('../../utils/uuid-stringify')
 const Logger = require('../../utils/logger')
 const PendingSelfLoots = require('../../pending-self-loots')
+const RecentMoves = require('../../storage/recent-moves')
 const ParserError = require('../parser-error')
 
 const name = 'OpInventoryMoveItem'
@@ -15,6 +16,10 @@ function handle(event) {
     { fromSlot, fromUuid, toSlot, toUuid },
     event.parameters
   )
+
+  // Local patch: the only packet that names where an item came FROM. Held
+  // briefly for the put that answers it — see storage/recent-moves.js.
+  RecentMoves.record(fromUuid, toUuid)
 
   if (fromUuid === toUuid) {
     return Logger.debug(
