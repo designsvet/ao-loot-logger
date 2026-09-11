@@ -37,6 +37,8 @@ const fresh = () => {
     OpJoin: require('../src/data-handler/response-data/op-join'),
     PendingSelfLoots: require('../src/pending-self-loots'),
     AssignmentWritten: require('../src/storage/assignment-written'),
+    OwnContainers: require('../src/storage/own-containers'),
+    RecentMoves: require('../src/storage/recent-moves'),
     Items: require('../src/items'),
     Logger: require('../src/utils/logger')
   }
@@ -62,6 +64,10 @@ const useFakeClock = (t, startAt = 1_700_000_000_000) => {
 
 const CONTAINER_UUID = new Array(16).fill(0).map((_, i) => i + 1)
 
+/** Your own containers, as OpJoin announces them — distinct from any container you open. */
+const INVENTORY_UUID = new Array(16).fill(0).map((_, i) => 100 + i)
+const EQUIPMENT_UUID = new Array(16).fill(0).map((_, i) => 200 + i)
+
 /** EvAttachItemContainer's shape: id, uuid bytes, (skipped), inventory, slots. */
 const attachEvent = (id = 4242, inventory = []) => ({
   parameters: { 0: id, 1: CONTAINER_UUID, 3: inventory, 4: 20 }
@@ -70,9 +76,44 @@ const attachEvent = (id = 4242, inventory = []) => ({
 /** EvNewLootChest's shape: object id and the chest's own name. */
 const newLootChestEvent = (id, owner) => ({ parameters: { 0: id, 3: owner } })
 
-/** EvInventoryPutItem's shape: the item, its slot, the DESTINATION container. */
-const putItemEvent = (objectId) => ({
-  parameters: { 0: objectId, 1: 0, 2: CONTAINER_UUID }
+/**
+ * EvInventoryPutItem's shape: the item, its slot, the DESTINATION container.
+ *
+ * Defaults to your INVENTORY, which is where a pickup lands. It used to default
+ * to the same GUID `attachEvent` gives the container you open, which modelled
+ * every pickup as a put into the chest it came out of — the one shape a real
+ * pickup never has, and exactly what a deposit looks like.
+ */
+const putItemEvent = (objectId, destination = INVENTORY_UUID) => ({
+  parameters: { 0: objectId, 1: 0, 2: destination }
 })
 
-module.exports = { fresh, useFakeClock, attachEvent, newLootChestEvent, putItemEvent, CONTAINER_UUID }
+/** OpJoin's shape: your name, guild, alliance, and your own containers' GUIDs. */
+const joinEvent = (playerName = 'Bors') => ({
+  parameters: {
+    1: new Array(16).fill(7),
+    2: playerName,
+    51: EQUIPMENT_UUID,
+    54: INVENTORY_UUID,
+    58: 'VITRYLA',
+    79: ''
+  }
+})
+
+/** OpInventoryMoveItem's shape: your own request to move slot → slot, container → container. */
+const moveEvent = (from, to, fromSlot = 0, toSlot = 0) => ({
+  parameters: { 0: fromSlot, 1: from, 3: toSlot, 4: to }
+})
+
+module.exports = {
+  fresh,
+  useFakeClock,
+  attachEvent,
+  newLootChestEvent,
+  putItemEvent,
+  joinEvent,
+  moveEvent,
+  CONTAINER_UUID,
+  INVENTORY_UUID,
+  EQUIPMENT_UUID
+}

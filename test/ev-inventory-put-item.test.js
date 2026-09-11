@@ -152,3 +152,146 @@ test('an ownerless container re-attaching never re-arms attribution', (t) => {
 
   assert.deepEqual(s.written, [])
 })
+
+// --- Deposits and your own moves are never pickups (2026-09-11) ---------------
+//
+// Reported 2026-09-09: the guild deposited its outpost haul at 15:16 while a
+// Keeper camp chest had named itself nearby, and every deposit was written as a
+// pickup from that camp chest — the same robe, counted twice.
+
+const { joinEvent, moveEvent, CONTAINER_UUID: OPENED, INVENTORY_UUID, EQUIPMENT_UUID } = require('./helpers')
+
+const CAMP = 'KEEPER_DYNAMIC_CAMP_PERSONAL_SMALL_LC'
+
+test('a deposit into the chest you have open is not loot, even with a chest in play', (t) => {
+  const s = session(t)
+
+  s.OpJoin.handle(joinEvent())
+  s.EvNewLootChest.handle(newLootChestEvent(900, CAMP))
+  s.clock.advance(5_000)
+
+  // The guild chest opens under its own container id, with no owner.
+  s.EvAttachItemContainer.handle(attachEvent(4242))
+  s.OpInventoryMoveItem.handle(moveEvent(INVENTORY_UUID, OPENED))
+  s.EvInventoryPutItem.handle(putItemEvent(7, OPENED))
+
+  assert.deepEqual(s.written, [], 'a deposit must not be logged as loot')
+})
+
+test('a deposit is recognised by where it went, before the character is even identified', (t) => {
+  const s = session(t)
+
+  s.MemoryStorage.players.self = null
+  s.EvNewLootChest.handle(newLootChestEvent(900, CAMP))
+  s.EvAttachItemContainer.handle(attachEvent(4242))
+  s.EvInventoryPutItem.handle(putItemEvent(7, OPENED))
+
+  assert.deepEqual(s.written, [])
+  assert.equal(s.MemoryStorage.loots.getById(7), undefined, 'the item left for the chest; nothing is held for later')
+})
+
+test('unequipping near a chest is not loot', (t) => {
+  const s = session(t)
+
+  s.OpJoin.handle(joinEvent())
+  s.EvNewLootChest.handle(newLootChestEvent(900, CHEST))
+  s.OpInventoryMoveItem.handle(moveEvent(EQUIPMENT_UUID, INVENTORY_UUID))
+  s.clock.advance(80)
+  s.EvInventoryPutItem.handle(putItemEvent(7))
+
+  assert.deepEqual(s.written, [])
+})
+
+test('taking an item out of a chest into your inventory is still loot', (t) => {
+  const s = session(t)
+
+  s.OpJoin.handle(joinEvent())
+  s.EvNewLootChest.handle(newLootChestEvent(900, CHEST))
+
+  // The chest's container attaches under an id that does not match the chest
+  // (the case the window exists for), so the item carries no owner.
+  s.EvAttachItemContainer.handle(attachEvent(4242))
+  s.OpInventoryMoveItem.handle(moveEvent(OPENED, INVENTORY_UUID))
+  s.clock.advance(80)
+  s.EvInventoryPutItem.handle(putItemEvent(7))
+
+  assert.equal(s.written.length, 1)
+  assert.equal(s.written[0].lootedFrom.playerName, CHEST)
+})
+
+test('a move request explains one put, not the next', (t) => {
+  const s = session(t)
+
+  s.OpJoin.handle(joinEvent())
+  s.EvNewLootChest.handle(newLootChestEvent(900, CHEST))
+  s.OpInventoryMoveItem.handle(moveEvent(EQUIPMENT_UUID, INVENTORY_UUID))
+  s.EvInventoryPutItem.handle(putItemEvent(7))
+
+  // A take-all right after: no request of its own, so the unequip's request
+  // must already be spent rather than excusing this one too.
+  s.MemoryStorage.loots.add({ objectId: 8, itemId: 'T6_RELIC', itemName: "Master's Relic", quantity: 10 })
+  s.EvInventoryPutItem.handle(putItemEvent(8))
+
+  assert.equal(s.written.length, 1)
+  assert.equal(s.written[0].itemId, 'T6_RELIC')
+})
+
+test('a request too old to be this put is ignored', (t) => {
+  const s = session(t)
+
+  s.OpJoin.handle(joinEvent())
+  s.EvNewLootChest.handle(newLootChestEvent(900, CHEST))
+  s.OpInventoryMoveItem.handle(moveEvent(EQUIPMENT_UUID, INVENTORY_UUID))
+  s.clock.advance(s.RecentMoves.PAIR_MS + 1)
+  s.EvInventoryPutItem.handle(putItemEvent(7))
+
+  assert.equal(s.written.length, 1)
+})
+
+test('the 2026-09-09 deposit, replayed, writes nothing', (t) => {
+  const s = session(t)
+  const haul = [
+    ['T7_ARMOR_CLOTH_ROYAL', "Grandmaster's Royal Robe", 1],
+    ['T8_RUNE', "Elder's Rune", 1],
+    ['T8_SOUL', "Elder's Soul", 1],
+    ['T7_BAG_INSIGHT@1', "Grandmaster's Satchel of Insight", 1],
+    ['T5_HEAD_CLOTH_SET3@1', "Expert's Mage Cowl", 1],
+    ['T7_RELIC', "Grandmaster's Relic", 1],
+    ['T4_ARTEFACT_2H_BOW_HELL', "Adept's Demonic Arrowheads", 1],
+    ['T6_RELIC', "Master's Relic", 10],
+    ['T7_MEAL_OMELETTE@1', 'Pork Omelette', 1]
+  ]
+
+  s.OpJoin.handle(joinEvent())
+  s.EvNewLootChest.handle(newLootChestEvent(900, CAMP))
+  s.EvAttachItemContainer.handle(attachEvent(4242))
+
+  haul.forEach(([itemId, itemName, quantity], slot) => {
+    const objectId = 1000 + slot
+
+    // The server re-creates each item inside the chest, then puts it there.
+    s.MemoryStorage.loots.add({ objectId, itemId, itemName, quantity })
+    s.OpInventoryMoveItem.handle(moveEvent(INVENTORY_UUID, OPENED, slot, slot))
+    s.clock.advance(80)
+    s.EvInventoryPutItem.handle(putItemEvent(objectId, OPENED))
+    s.clock.advance(400)
+  })
+
+  assert.deepEqual(s.written, [])
+})
+
+test('your own containers are learned from every 16-byte GUID the join carries', (t) => {
+  const s = session(t)
+  const uuid = require('../src/utils/uuid-stringify')
+
+  s.OwnContainers.learnFromJoin({ 2: 'Bors', 51: EQUIPMENT_UUID, 54: INVENTORY_UUID, 60: [1, 2, 3] })
+
+  assert.equal(s.OwnContainers.isOwn(uuid(INVENTORY_UUID)), true)
+  assert.equal(s.OwnContainers.isOwn(uuid(EQUIPMENT_UUID)), true)
+  assert.equal(s.OwnContainers.isOwn(uuid(OPENED)), false)
+
+  // A join with no GUIDs says nothing new, so it must not forget the inventory.
+  s.OwnContainers.learnFromJoin({ 2: 'Bors' })
+
+  assert.equal(s.OwnContainers.isOwn(uuid(INVENTORY_UUID)), true)
+})
