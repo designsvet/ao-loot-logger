@@ -44,10 +44,9 @@ function read(params) {
   return { albionGuildId, territories, controlCost }
 }
 
+/** The server of the packet that carried this response — see ServerRegion.getPacketServer. */
 function serverToken() {
-  const server = ServerRegion.getCurrentServer()
-
-  return server && typeof server.region === 'string' ? server.region.toLowerCase() : null
+  return ServerRegion.getPacketRegionToken()
 }
 
 function handle(event) {

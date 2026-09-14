@@ -98,10 +98,9 @@ function read(params) {
   return rows
 }
 
+/** The server of the packet that carried this page — see ServerRegion.getPacketServer. */
 function serverToken() {
-  const server = ServerRegion.getCurrentServer()
-
-  return server && typeof server.region === 'string' ? server.region.toLowerCase() : null
+  return ServerRegion.getPacketRegionToken()
 }
 
 function handle(event) {

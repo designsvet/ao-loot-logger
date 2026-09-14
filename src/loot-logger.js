@@ -69,6 +69,10 @@ class LootLogger {
 
     this.linesWritten += 1
 
+    // Deliberately the SETTLED server, not ServerRegion.getPacketServer(): a held pickup is
+    // written on a later packet (pending-self-loots flushes on the next zone join), and this only
+    // fills the file's display column, mid-session — nowhere near the login burst that made the
+    // lines the bot stores (festivities, energy) read the packet instead.
     const server = ServerRegion.getCurrentServer()
     const serverName = server ? server.name : ''
 
