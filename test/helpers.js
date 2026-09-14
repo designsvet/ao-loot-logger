@@ -29,7 +29,16 @@ const fresh = () => {
     EvNewLootChest: require('../src/data-handler/event-data/ev-new-loot-chest'),
     EvNewSimpleItem: require('../src/data-handler/event-data/ev-new-simple-item'),
     EvNewEquipmentItem: require('../src/data-handler/event-data/ev-new-equipment-item'),
-    EvUpdateLootChest: require('../src/data-handler/event-data/ev-update-loot-chest')
+    EvUpdateLootChest: require('../src/data-handler/event-data/ev-update-loot-chest'),
+    EvNewLoot: require('../src/data-handler/event-data/ev-new-loot'),
+    EvPartyLootItems: require('../src/data-handler/event-data/ev-party-loot-items'),
+    EvPartyLootItemTypesRemoved: require('../src/data-handler/event-data/ev-party-loot-item-types-removed'),
+    OpInventoryMoveItem: require('../src/data-handler/request-data/op-inventory-move-item'),
+    OpJoin: require('../src/data-handler/response-data/op-join'),
+    PendingSelfLoots: require('../src/pending-self-loots'),
+    AssignmentWritten: require('../src/storage/assignment-written'),
+    Items: require('../src/items'),
+    Logger: require('../src/utils/logger')
   }
 }
 

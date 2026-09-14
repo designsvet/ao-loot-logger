@@ -104,19 +104,29 @@ recoverable at all.
 | **party loot / distribution** | `PartyLootItems` names EVERY item and EVERY member (75 items / 75 names observed) — full attribution |
 | **free-for-all** | nothing usable: either no assignment at all, or one with every array empty (params 7/8 = `-1`). Nobody is attributable, not even party members |
 
-Measured 2026-08-19 across seven chests. Your OWN pickups always log either way
-(via `EvInventoryPutItem`, under the chest's real name). Anyone outside the
-party is never attributable regardless of mode.
+Measured 2026-08-19 across seven chests. Your OWN pickups logged either way
+there (via `EvInventoryPutItem`, under the chest's real name) — but not
+everywhere: in the Ancient Lands (2026-09-14) a chest assigned to you sends no
+`EvInventoryPutItem` at all; the game moves the items into your bag by itself.
+Anyone outside the party is never attributable regardless of mode.
 
 **So: run party-loot mode if you want the group's chest loot on the report.**
 
 **Chest attribution also requires you to be IN the distribution.**
 Measured across five chests on 2026-08-19. When you take part, the assignment
 event names every item and every player (75 items / 75 names on one chest), and
-this fork writes a line per item for everyone but you. When you merely stand
-next to a chest that others empty, your client receives the chest's REGISTRATION
-and nothing else — no assignment, no removal, no names. So a member who wants
-the group's chest loot recorded has to be looting it too.
+this fork writes a line per item for everyone, you included — your own share is
+written at assignment since 2026-09-14. A put-item or move-item that follows for
+the same item is skipped. The match is by object id where the assignment's ids
+are the ones the pickup carries (an assumption: no captured packet has shown it
+yet), and otherwise by chest and item type within the chest window. The type
+match exists because a pickup event carries the id of the object that ends up
+in the destination slot (measured 2026-09-14), so an item that merges into, or
+splits from, a stack in your bag arrives under that stack's id. A pickup under
+another id that comes after the window is still written a second time. When
+you merely stand next to a chest that others empty, your client receives the
+chest's REGISTRATION and nothing else — no assignment, no removal, no names. So
+a member who wants the group's chest loot recorded has to be looting it too.
 
 **Other players' pickups — corpses AND chests, by two different events.**
 

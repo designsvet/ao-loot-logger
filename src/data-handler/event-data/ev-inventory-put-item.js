@@ -3,6 +3,7 @@ const LootLogger = require('../../loot-logger')
 const Logger = require('../../utils/logger')
 const PendingSelfLoots = require('../../pending-self-loots')
 const ChestWindow = require('../../storage/chest-window')
+const AssignmentWritten = require('../../storage/assignment-written')
 const ParserError = require('../parser-error')
 
 const name = 'EvInventoryPutItem'
@@ -20,6 +21,19 @@ function handle(event) {
   // No tracked item at all: an inventory shuffle, nothing to log.
   if (loot == null) {
     return
+  }
+
+  // Local patch: the chest's assignment already wrote this pickup — our own
+  // party-loot share, written by ev-party-loot-items.js because the Ancient Lands
+  // send no put-item for it at all. Where the game does send one, writing it here
+  // too would double it. Skipped once and consumed, and the item is forgotten
+  // exactly as a write would forget it. Matched here by object id, which assumes
+  // the assignment's ids are the ones this event carries — not yet seen in a
+  // captured packet. The type match further down covers the rest.
+  if (AssignmentWritten.consume(objectId)) {
+    MemoryStorage.loots.deleteById(objectId)
+
+    return Logger.debug('EvInventoryPutItem already written by the chest assignment', objectId)
   }
 
   // Local patch: an item whose container never registered has no owner. That
@@ -57,6 +71,22 @@ function handle(event) {
   }
 
   const source = loot.owner || recentChest || UNKNOWN_SOURCE
+
+  // Local patch: the same share under another object id. This event carries the
+  // id of the object that ends up in the destination slot (measured 2026-09-14),
+  // so a chest item of ours that merged into, or split from, a stack in our bag
+  // arrives as that stack, and `quantity` here would be the stack's TOTAL.
+  // Matched by chest and item type inside the chest window instead
+  // (storage/assignment-written.js).
+  if (AssignmentWritten.consumeByType(source, loot.itemId)) {
+    MemoryStorage.loots.deleteById(objectId)
+
+    return Logger.debug('EvInventoryPutItem already written by the chest assignment, by type', {
+      objectId,
+      source,
+      itemId: loot.itemId
+    })
+  }
 
   const lootedBy = MemoryStorage.players.self
   const lootedFrom =
