@@ -116,8 +116,14 @@ Anyone outside the party is never attributable regardless of mode.
 Measured across five chests on 2026-08-19. When you take part, the assignment
 event names every item and every player (75 items / 75 names on one chest), and
 this fork writes a line per item for everyone, you included — your own share is
-written at assignment since 2026-09-14, and its object ids are remembered so a
-put-item or move-item for the same object is not written a second time. When
+written at assignment since 2026-09-14. A put-item or move-item that follows for
+the same item is skipped. The match is by object id where the assignment's ids
+are the ones the pickup carries (an assumption: no captured packet has shown it
+yet), and otherwise by chest and item type within the chest window. The type
+match exists because a pickup event carries the id of the object that ends up
+in the destination slot (measured 2026-09-14), so an item that merges into, or
+splits from, a stack in your bag arrives under that stack's id. A pickup under
+another id that comes after the window is still written a second time. When
 you merely stand next to a chest that others empty, your client receives the
 chest's REGISTRATION and nothing else — no assignment, no removal, no names. So
 a member who wants the group's chest loot recorded has to be looting it too.

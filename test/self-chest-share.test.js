@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert')
 
-const { fresh, newLootChestEvent, putItemEvent } = require('./helpers')
+const { fresh, useFakeClock, newLootChestEvent, putItemEvent } = require('./helpers')
 
 // Every re-require of loot-logger registers a process exit handler.
 process.setMaxListeners(50)
@@ -20,6 +20,11 @@ process.setMaxListeners(50)
  * written 0), not its arrays. They are rebuilt from the ten objects the chest
  * delivered in the same millisecond. (That summary counted 14 entries against
  * those ten objects; what the other four were is not recoverable from the log.)
+ *
+ * So the fixture's 10 rows / 58 items are what the chest DELIVERED, not a replay
+ * of that 302: a real replay could write up to 14 rows. The later tests pin what
+ * the handler does with entries the chest never delivers, and with pickups that
+ * do not carry the assignment's ids.
  */
 
 const CHEST_ID = 3221
@@ -71,6 +76,17 @@ const BAG_REFRESH = [
   { 0: 9756, 1: 194, 2: 1, 4: 44752748, 252: 32 }
 ]
 
+/**
+ * HYPOTHETICAL — stand-ins for the four entries of that 302 which match none of
+ * the ten objects. Their real ids, types and amounts are not in the log.
+ */
+const HYPOTHETICAL_EXTRA = [
+  { 0: 9757, 1: 2005, 2: 2 },
+  { 0: 9758, 1: 2013, 2: 1 },
+  { 0: 9759, 1: 2006, 2: 1 },
+  { 0: 9760, 1: 2021, 2: 1 }
+]
+
 /** The names the engine resolved those type ids to, in the same log. */
 const ITEMS = {
   2037: ['T8_RUNE', "Elder's Rune"],
@@ -93,9 +109,12 @@ const TOTAL = AMOUNTS.reduce((sum, n) => sum + n, 0)
 
 const ALL_OURS = IDS.map(() => 'Bors')
 
+/** What a 302 would carry if its parameter 1 were NOT the ids the chest and the pickups use. */
+const ELSEWHERE = IDS.map((id) => id + 5000)
+
 /** EvPartyLootItems (302): 0 source, 1 item object ids, 2 type ids, 9 amounts, 10 names. */
-const assignmentEvent = (names) => ({
-  parameters: { 0: CHEST_ID, 1: IDS, 2: TYPES, 9: AMOUNTS, 10: names, 252: 302 }
+const assignmentEvent = (names, { ids = IDS, types = TYPES, amounts = AMOUNTS } = {}) => ({
+  parameters: { 0: CHEST_ID, 1: ids, 2: types, 9: amounts, 10: names, 252: 302 }
 })
 
 /** EvPartyLootItemTypesRemoved (304) 15:00:22.541Z: source 3221, ten types, all cleared. */
@@ -115,9 +134,14 @@ const joinEvent = (playerName) => ({ parameters: { 2: playerName, 58: 'VITRYLA',
 
 const session = (t, { identified = true } = {}) => {
   const mods = fresh()
+  const clock = useFakeClock(t)
   const written = []
+  const warnings = []
+  const debugs = []
 
   mods.LootLogger.write = (row) => written.push(row)
+  mods.Logger.warn = (message, ...rest) => warnings.push({ message, rest })
+  mods.Logger.debug = (message, ...rest) => debugs.push({ message, rest })
   mods.Items.items = Object.fromEntries(
     Object.entries(ITEMS).map(([num, [itemId, itemName]]) => [num, { itemNumId: Number(num), itemId, itemName }])
   )
@@ -128,13 +152,16 @@ const session = (t, { identified = true } = {}) => {
 
   delete process.env.LOG_UNKNOWN_SOURCE
 
-  return { ...mods, written }
+  return { ...mods, clock, written, warnings, debugs }
 }
 
+/** The chest's first attach after an assignment of ours, when it lacks some of our objects. */
+const chestWarnings = (s) => s.warnings.filter((w) => w.message.startsWith('EvAttachItemContainer'))
+
 /** The chest as it happened: named, assigned, filled, cleared by type. */
-const replayChest = (s, names = ALL_OURS) => {
+const replayChest = (s, names = ALL_OURS, assignment = {}) => {
   s.EvNewLootChest.handle(newLootChestEvent(CHEST_ID, CHEST))
-  s.EvPartyLootItems.handle(assignmentEvent(names))
+  s.EvPartyLootItems.handle(assignmentEvent(names, assignment))
 
   for (const parameters of CHEST_ITEMS) {
     s.EvNewSimpleItem.handle({ parameters })
@@ -172,6 +199,8 @@ test('a put-item for the same objects writes nothing more', (t) => {
 
   replayChest(s)
 
+  assert.deepEqual(chestWarnings(s), [], 'the chest holds every object the assignment named ours')
+
   // Where the game does follow the assignment with pickups: every object once.
   for (const id of IDS) {
     s.EvInventoryPutItem.handle(putItemEvent(id))
@@ -179,6 +208,112 @@ test('a put-item for the same objects writes nothing more', (t) => {
 
   assert.equal(s.written.length, 10, 'one assignment, one row — not two')
   assert.equal(s.AssignmentWritten.size(), 0, 'each id is consumed by the pickup it stood for')
+})
+
+test('a put-item under ids the assignment did not use still writes nothing more', (t) => {
+  const s = session(t)
+
+  // Parameter 1 is ASSUMED to hold the ids the chest and the pickups use; no
+  // captured packet has shown it. If it does not, the id match finds nothing and
+  // the chest-and-type match has to catch every pickup.
+  replayChest(s, ALL_OURS, { ids: ELSEWHERE })
+
+  const [warning] = chestWarnings(s)
+
+  assert.ok(warning, "the chest's first attach says the ids do not line up")
+  assert.deepEqual(warning.rest[0].missing, ELSEWHERE)
+
+  for (const id of IDS) {
+    s.EvInventoryPutItem.handle(putItemEvent(id))
+  }
+
+  assert.equal(s.written.length, 10)
+  assert.equal(s.AssignmentWritten.size(), 0)
+})
+
+test("a chest item that merged into our stack is not written again with the stack's total", (t) => {
+  const s = session(t)
+
+  replayChest(s)
+  s.clock.advance(2_000)
+
+  // 15:00:24.326Z: 9748 (T6_SOUL x1) was deleted and our stack 6578 came back as
+  // x5. A pickup event names the object in the DESTINATION slot, so where the
+  // game follows a merge with a put-item, it is the stack's.
+  s.EvNewSimpleItem.handle({ parameters: BAG_REFRESH[1] })
+  s.EvInventoryPutItem.handle(putItemEvent(6578))
+
+  // A split arrives as a new object for the part that moved (4690 at 15:49:00Z).
+  s.EvNewSimpleItem.handle({ parameters: { 0: 9990, 1: 2005, 2: 21, 252: 32 } })
+  s.EvInventoryPutItem.handle(putItemEvent(9990))
+
+  assert.equal(s.written.length, 10, 'the assignment row stands; neither pickup is a second one')
+  assert.equal(s.written.find((row) => row.itemId === 'T6_SOUL').quantity, 1, "our share, not the stack's 5")
+})
+
+test('the type match ends with the window: a later chest of the same name is written', (t) => {
+  const s = session(t)
+
+  // The Ancient Lands: nothing ever consumes these entries.
+  replayChest(s)
+  s.clock.advance(s.AssignmentWritten.WINDOW_MS + 1)
+
+  // Another chest with the same name on the same map, looted with no assignment.
+  // Chest names are types, not instances; its soul is a real pickup.
+  s.EvNewLootChest.handle(newLootChestEvent(4000, CHEST))
+  s.EvNewSimpleItem.handle({ parameters: { 0: 7001, 1: 2022, 2: 1, 252: 32 } })
+  s.EvAttachItemContainer.handle({ parameters: { 0: 4000, 1: new Array(16).fill(7), 3: [7001], 4: 10 } })
+  s.EvInventoryPutItem.handle(putItemEvent(7001))
+
+  assert.equal(s.written.length, 11)
+  assert.equal(s.written[10].itemId, 'T6_SOUL')
+  assert.equal(s.written[10].lootedFrom.playerName, CHEST)
+})
+
+test("the chest's own attach keeps its entries in the window while it is emptied", (t) => {
+  const s = session(t)
+
+  replayChest(s, ALL_OURS, { ids: ELSEWHERE })
+
+  // Emptying a chest takes minutes, and its contents re-attach as you go.
+  s.clock.advance(60_000)
+  s.EvAttachItemContainer.handle(chestAttach())
+  s.clock.advance(60_000)
+
+  // 120 s after the assignment, 60 s after the chest last attached.
+  s.EvInventoryPutItem.handle(putItemEvent(IDS[0]))
+
+  assert.equal(s.written.length, 10)
+})
+
+test('an assignment naming more of ours than the chest holds writes each entry, and says so', (t) => {
+  const s = session(t)
+  const extraIds = HYPOTHETICAL_EXTRA.map((p) => p[0])
+  const ids = [...IDS, ...extraIds]
+
+  // The shape of the real 302: 14 entries of ours, a 10-object chest.
+  replayChest(s, ids.map(() => 'Bors'), {
+    ids,
+    types: [...TYPES, ...HYPOTHETICAL_EXTRA.map((p) => p[1])],
+    amounts: [...AMOUNTS, ...HYPOTHETICAL_EXTRA.map((p) => p[2])]
+  })
+
+  // Pinned, not endorsed: a row per named entry of ours whose type resolves,
+  // whether or not the chest ever delivers the object.
+  assert.equal(s.written.length, 14)
+
+  const [warning] = chestWarnings(s)
+
+  assert.ok(warning)
+  assert.equal(warning.rest[0].ours, 14)
+  assert.equal(warning.rest[0].objects, 10)
+  assert.deepEqual(warning.rest[0].missing, extraIds)
+
+  // The raw arrays are in the debug log, so the next capture can say what they were.
+  const raw = s.debugs.find((d) => d.message.startsWith('EvPartyLootItems our share'))
+
+  assert.equal(raw.rest[0][1], ids.join(','))
+  assert.equal(raw.rest[0][10], ids.map(() => 'Bors').join(','))
 })
 
 test('a move out of the chest and the put-item behind it still make one row', (t) => {
@@ -234,7 +369,7 @@ test("other members' assignments are unchanged", (t) => {
   assert.equal(ours.length, 5)
   assert.ok(theirs.every((row) => row.lootedBy === s.MemoryStorage.players.getByName('PartyMate')))
   assert.ok(theirs.every((row) => row.lootedFrom.playerName === CHEST))
-  assert.equal(s.AssignmentWritten.size(), 5, 'only our own ids are held back from the pickup handlers')
+  assert.equal(s.AssignmentWritten.size(), 5, 'only our own entries are held back from the pickup handlers')
 })
 
 test("a bag's assignment is still left to the bag's own events", (t) => {
@@ -306,7 +441,7 @@ test('the record is bounded, oldest first', () => {
   const { AssignmentWritten } = fresh()
 
   for (let id = 1; id <= AssignmentWritten.MAX_TRACKED + 1; id++) {
-    AssignmentWritten.mark(id)
+    AssignmentWritten.mark({ objectId: id, sourceObjectId: CHEST_ID, chestName: CHEST, itemId: 'T4_RUNE' })
   }
 
   assert.equal(AssignmentWritten.size(), AssignmentWritten.MAX_TRACKED)

@@ -55,6 +55,12 @@ function handle(event) {
       return Logger.debug('OpInventoryMoveItem no owner', fromUuid)
     }
 
+    // Local patch: the same share under another object id, matched by chest and
+    // item type inside the chest window (see ev-inventory-put-item.js).
+    if (AssignmentWritten.consumeByType(loot.owner, loot.itemId)) {
+      return Logger.debug('OpInventoryMoveItem already written by the chest assignment, by type', loot.objectId)
+    }
+
     const lootedBy = MemoryStorage.players.self
     const lootedFrom =
       MemoryStorage.players.getByName(loot.owner) ??

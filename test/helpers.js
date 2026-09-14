@@ -37,7 +37,8 @@ const fresh = () => {
     OpJoin: require('../src/data-handler/response-data/op-join'),
     PendingSelfLoots: require('../src/pending-self-loots'),
     AssignmentWritten: require('../src/storage/assignment-written'),
-    Items: require('../src/items')
+    Items: require('../src/items'),
+    Logger: require('../src/utils/logger')
   }
 }
 

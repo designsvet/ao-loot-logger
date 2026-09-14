@@ -24,17 +24,24 @@ const name = 'EvPartyLootItems'
  * Our OWN share is written here as well (2026-09-14). It used to be skipped, on
  * the assumption that EvInventoryPutItem already logs our own pickups under the
  * chest's real name. Measured in the Ancient Lands that day, it does not: a solo
- * chest (DRAGON_AREA_OUTSIDE_ISLAND_CHEST_SOLO) was assigned whole to us, and no
- * EvInventoryPutItem and no OpInventoryMoveItem followed — two seconds later the
- * game moved its ten objects into our bag by itself (an inventory refresh, the
- * merged objects deleted). 58 items, and this handler's own debug line said
- * `written: 0`.
+ * chest (DRAGON_AREA_OUTSIDE_ISLAND_CHEST_SOLO) was assigned to us, every name in
+ * the assignment ours, and no EvInventoryPutItem and no OpInventoryMoveItem
+ * followed. Two seconds later the game moved the chest's ten objects, 58 items,
+ * into our bag by itself (an inventory refresh, the merged objects deleted), and
+ * this handler's own debug line said `written: 0`. That line counted 14 entries
+ * against those ten objects. The arrays were not logged, so what the other four
+ * were is not known; whenever an assignment names us, they are logged in full now.
  *
- * The dedupe rule: every item of ours written here is recorded by object id in
- * storage/assignment-written.js, and EvInventoryPutItem and OpInventoryMoveItem
- * skip — and consume — an id they find there. Where the game does follow a chest
- * assignment with a pickup event (outside the Ancient Lands it did, 2026-08-19),
- * the pickup is written once, here, and not again there.
+ * Where the game does follow a chest assignment with a pickup event (outside the
+ * Ancient Lands it did, 2026-08-19), storage/assignment-written.js keeps that
+ * pickup from writing our share a second time. It matches by object id, which
+ * ASSUMES that parameter 1 holds the ids the pickup will carry (no captured packet
+ * has shown that yet), and otherwise by chest and item type within the chest
+ * window. The second match is required: a pickup event carries the id of the
+ * object in the DESTINATION slot (measured 2026-09-14), so a chest item that
+ * merges into or splits from one of our stacks never arrives under its own id. A
+ * pickup under another id that arrives after the window can still write a second
+ * row.
  */
 function handle(event) {
   const { sourceObjectId, itemObjectIds, itemTypeIds, amounts, playerNames } = parse(event)
@@ -49,6 +56,7 @@ function handle(event) {
 
   let written = 0
   let ours = 0
+  const marked = []
 
   for (let i = 0; i < itemObjectIds.length; i++) {
     const playerName = playerNames[i]
@@ -86,8 +94,12 @@ function handle(event) {
     // The trade-off, stated plainly: if a distribution is ever reassigned or
     // abandoned, this logs a pickup that did not happen. That now includes our
     // own share, which used to wait for a pickup event the Ancient Lands never
-    // send. Silence for most of a chest is the worse failure for a loot report,
-    // and the officer is the judge.
+    // send. An entry whose object the chest never delivers is written the same
+    // way: the one real assignment of ours (2026-09-14) named 14 entries against
+    // a 10-object chest. The chest's first attach after the assignment warns when
+    // that happens, with the ids (ev-attach-item-container.js). Silence for most
+    // of a chest is the worse failure for a loot report, and the officer is the
+    // judge.
     LootLogger.write({
       date: new Date(),
       itemId: item.itemId,
@@ -108,13 +120,18 @@ function handle(event) {
 
     // Held back from the pickup handlers, so they do not write it again. Before
     // OpJoin no name can be recognised as ours: every name is then written under
-    // the name the chest gave it, as it always was, and every id is held back —
+    // the name the chest gave it, as it always was, and every entry is held back —
     // those handlers only ever see our own pickups. No pending-self-loots hold is
     // needed on this path: unlike a put-item, the assignment names its looter,
     // and OpJoin adopts that same player record as self.
     if (isSelf || self == null) {
-      AssignmentWritten.mark(itemObjectIds[i])
+      AssignmentWritten.mark({ objectId: itemObjectIds[i], sourceObjectId, chestName, itemId: item.itemId })
+      marked.push(itemObjectIds[i])
     }
+  }
+
+  if (marked.length > 0) {
+    AssignmentWritten.expectInChest(sourceObjectId, marked)
   }
 
   // Log WHOSE names, not just how many. Counting them was the blind spot: a
@@ -130,6 +147,21 @@ function handle(event) {
     written,
     ours
   })
+
+  // An assignment of ours, raw. The summary above was all the 2026-09-14 capture
+  // kept, and it could not say what four of its 14 entries were, nor whether
+  // parameter 1 holds the ids the pickups carry. Joined, so a long chest is not
+  // cut short by the formatter.
+  if (marked.length > 0 || (selfName != null && playerNames.includes(selfName))) {
+    Logger.debug('EvPartyLootItems our share, raw arrays 1/2/9/10', {
+      sourceObjectId,
+      source: chestName,
+      1: itemObjectIds.join(','),
+      2: itemTypeIds.join(','),
+      9: amounts.join(','),
+      10: playerNames.join(',')
+    })
+  }
 
   // An assignment that parses to nothing is either a silver distribution (silver
   // does not travel in the item arrays) or a payload shape these indices miss.
