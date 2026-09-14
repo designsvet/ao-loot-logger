@@ -3,6 +3,7 @@ const LootLogger = require('../../loot-logger')
 const uuidStringify = require('../../utils/uuid-stringify')
 const Logger = require('../../utils/logger')
 const PendingSelfLoots = require('../../pending-self-loots')
+const AssignmentWritten = require('../../storage/assignment-written')
 const ParserError = require('../parser-error')
 
 const name = 'OpInventoryMoveItem'
@@ -41,6 +42,14 @@ function handle(event) {
 
     MemoryStorage.loots.deleteById(loot.objectId)
     delete container.items[fromSlot]
+
+    // Local patch: the chest's assignment already wrote this pickup (see
+    // ev-inventory-put-item.js). Checked only on this branch, the one that
+    // writes: a move out of a CHEST writes nothing here, and consuming the id
+    // there would leave the put-item that follows free to write it again.
+    if (AssignmentWritten.consume(loot.objectId)) {
+      return Logger.debug('OpInventoryMoveItem already written by the chest assignment', loot.objectId)
+    }
 
     if (loot.owner == null) {
       return Logger.debug('OpInventoryMoveItem no owner', fromUuid)

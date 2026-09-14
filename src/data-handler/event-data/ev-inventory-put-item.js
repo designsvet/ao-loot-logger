@@ -3,6 +3,7 @@ const LootLogger = require('../../loot-logger')
 const Logger = require('../../utils/logger')
 const PendingSelfLoots = require('../../pending-self-loots')
 const ChestWindow = require('../../storage/chest-window')
+const AssignmentWritten = require('../../storage/assignment-written')
 const ParserError = require('../parser-error')
 
 const name = 'EvInventoryPutItem'
@@ -20,6 +21,17 @@ function handle(event) {
   // No tracked item at all: an inventory shuffle, nothing to log.
   if (loot == null) {
     return
+  }
+
+  // Local patch: the chest's assignment already wrote this pickup — our own
+  // party-loot share, written by ev-party-loot-items.js because the Ancient Lands
+  // send no put-item for it at all. Where the game does send one, writing it here
+  // too would double it. Skipped once and consumed, and the item is forgotten
+  // exactly as a write would forget it.
+  if (AssignmentWritten.consume(objectId)) {
+    MemoryStorage.loots.deleteById(objectId)
+
+    return Logger.debug('EvInventoryPutItem already written by the chest assignment', objectId)
   }
 
   // Local patch: an item whose container never registered has no owner. That
