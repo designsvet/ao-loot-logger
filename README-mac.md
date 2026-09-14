@@ -167,3 +167,49 @@ Kept in one commit so `git pull madvac main` stays easy:
 - `sample-loot-borys.txt` / `sample-loot-maria.txt` are synthetic two-uploader
   captures for exercising the bot without the game running;
   `test-fixtures-packets.json` holds the real packets used to verify the decoder.
+
+## Recording a whole session (the activity-stats step 0)
+
+The 120-second `g` window answers "what arrives when I open this screen". The
+activity-stats plan (raid-bot, `docs/plans/2026-09-capture-activity-stats.md`)
+asks a different question — which stats does an **evening of play** put on the
+wire, and in what shape — so there is a session-long mode:
+
+```sh
+cd ao-loot-logger
+sudo DUMP_PACKETS=session ALBION_IFACE=en0 node src/index.js
+```
+
+(`route -n get default | grep interface` names the interface.) It announces the
+file it is writing (`guild-dump-<timestamp>.jsonl`, next to the loot log), records
+every event, request and response until you press **Ctrl-C**, and prints the count
+once the file is flushed. A twenty-minute session is tens of thousands of records
+and a few megabytes. Events with no code — the Move stream, half of all traffic —
+are left out in this mode: they are position data and answer nothing here.
+
+Then read it with the analyzer, which grades the recording against the plan's own
+checklists and prints the parameter shapes it found:
+
+```sh
+node tools/analyze-recording.js guild-dump-2026-09-10T19-02-44.jsonl --r1
+node tools/analyze-recording.js guild-dump-2026-09-10T20-15-01.jsonl --r2
+node tools/analyze-recording.js guild-dump-*.jsonl --code 176 --samples 4   # every record of one code
+```
+
+**R1 — open world, 20–30 minutes:** kill mobs of three or more kinds (one solo, one
+in a party); gather three resource types with a tool; fish five casts including one
+that gets away; open two chests; pick silver up off the floor; enter and leave a
+solo dungeon. The analyzer also settles **whose object id is "me"** — a Join's
+parameter 0 has to turn up as the actor of an own-only packet (a silver pickup, a
+harvest) — which is the one question a personal page cannot be built without.
+
+**R2 — a city, 15 minutes:** buy instantly, sell instantly, place a sell order and a
+buy order, open the mailbox and read one sold mail, craft two items (one with
+focus), repair, and do one player-to-player trade.
+
+Names beside codes come from `tools/photon-codes.json` — the reference tool's
+enum on the current patch. Both enums shift when the game inserts a member, so a
+name is a lead, not a spec; the parameter shape is what the handlers are pinned to.
+
+The file holds your guild's data — player names, ids, amounts. Read it before
+sharing it; it is gitignored on purpose.
