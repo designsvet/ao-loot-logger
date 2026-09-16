@@ -158,6 +158,14 @@ Kept in one commit so `git pull madvac main` stays easy:
    timeout, so a slow or 503-ing GitHub stalled startup in silence for 15s+.
 3. **`[status]` heartbeat** every 60s, and the log path resolves to this folder
    (the fork's `'..','..'` is right for its packaged binary, not for source).
+4. **A deposit, an equip or a shuffle near a chest is not loot** (2026-09-11).
+   Within 90s of a chest naming itself, every ownerless item put anywhere was
+   written as a pickup from that chest — gear dropped INTO the guild chest, and
+   gear moved between your own equipment and inventory, included. A put into a
+   container you have open, or one your own move request shows came out of your
+   own container, is now dropped (`src/storage/own-containers.js`,
+   `src/storage/recent-moves.js`). A withdrawal from a guild chest near a named
+   chest is still indistinguishable from loot.
 
 ## Notes
 
