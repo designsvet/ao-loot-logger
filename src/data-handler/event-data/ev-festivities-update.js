@@ -40,11 +40,14 @@ function isNumberArray(value) {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
 }
 
-/** Region → the token the bot stores. Null when the region has not been detected yet. */
+/**
+ * Region → the token the bot stores, taken from the packet that CARRIED the rotation. Null when
+ * that packet's address matches no known server: the bot refuses an unknown server, and a rotation
+ * stored under nobody beats one stored under the wrong server. (This used to read the debounced
+ * current server, which lags a switch by five seconds — see ServerRegion.getPacketServer.)
+ */
 function serverToken() {
-  const server = ServerRegion.getCurrentServer()
-
-  return server && typeof server.region === 'string' ? server.region.toLowerCase() : null
+  return ServerRegion.getPacketRegionToken()
 }
 
 /**
@@ -107,9 +110,22 @@ function handle(event) {
     return
   }
 
+  const server = serverToken()
+
+  // Say why a rotation went out unlabelled: the bot refuses it, and without this line the only
+  // trace would be a refused upload with no reason attached. console, not Logger — the packaged
+  // app runs Logger at 'error', and this has to be readable there. The tag is deliberately not
+  // `[festivities] `, the prefix the app parses as the machine-read line.
+  if (server === null) {
+    console.warn(
+      `[festivities-unlabelled] the rotation arrived from ${ServerRegion.getPacketSource() ?? 'an unknown address'}, ` +
+        'which matches no known Albion server range; printed without a server so nothing stores it under the wrong one'
+    )
+  }
+
   console.info(
     `[festivities] ${JSON.stringify({
-      server: serverToken(),
+      server,
       code: event.parameters[252],
       entries
     })}`
