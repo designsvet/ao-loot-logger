@@ -103,7 +103,7 @@ const R1 = [
   { label: 'a chest opened', test: (c) => c.chestUpdate_q >= 1, why: 'open one yourself' },
   { label: 'two or more zone joins', test: (c) => c.join >= 2, why: 'enter and leave a dungeon' },
   { label: 'a dungeon cluster in the joins', test: (c, s) => s.joins.some((j) => /RANDOMDUNGEON|@/.test(String(j.cluster))), why: 'the dungeon shows in Join param 8' },
-  { label: "own object id settled (Join param 0 seen on an own-only packet)", test: (c, s) => s.ownId.settled, why: 'silver pickup or harvest with param 0 == Join param 0' }
+  { label: 'own object id settled (a Join param 0 acts in fame, silver or harvest)', test: (c, s) => s.ownId.settled, why: 'earn fame, pick up silver or gather once in the same zone' }
 ]
 
 const R2 = [
@@ -224,7 +224,11 @@ const analyze = (records, options = {}) => {
   const MARKET_REPLIES = new Set([79, 80, 83, 315, 244, 245])
   const replies = new Map()
   const joins = []
-  const ownOnly = { silver: new Set(), harvest: new Set() }
+  // Fame (82) is addressed only to the member. Silver pickups (62) and harvests (61) are
+  // BROADCAST for the players around them too (2026-09-16: 18 of 355 pickups were the
+  // member's), so for counting they must be filtered on the join id — but a join id that
+  // appears as their actor is still the member, since nobody else carries it.
+  const ownOnly = { fame: new Set(), silver: new Set(), harvest: new Set() }
   const healthCausers = new Map()
   const healthTargets = new Map()
   const characters = new Map()
@@ -275,6 +279,8 @@ const analyze = (records, options = {}) => {
     // The evidence the "whose object id is me" question needs.
     if (kind === 'response' && id === 2) {
       joins.push({ at: record.at, objectId: num(payload['0']), name: payload['2'], cluster: payload['8'] })
+    } else if (kind === 'event' && id === 82) {
+      ownOnly.fame.add(num(payload['0']))
     } else if (kind === 'event' && id === 62) {
       ownOnly.silver.add(num(payload['0']))
     } else if (kind === 'event' && id === 61) {
@@ -300,6 +306,7 @@ const analyze = (records, options = {}) => {
     joinIds,
     matches: joinIds.map((objectId) => ({
       objectId,
+      fame: ownOnly.fame.has(objectId),
       silver: ownOnly.silver.has(objectId),
       harvest: ownOnly.harvest.has(objectId),
       causedHits: healthCausers.get(objectId) ?? 0,
@@ -310,14 +317,14 @@ const analyze = (records, options = {}) => {
     note: ''
   }
 
-  ownId.settled = ownId.matches.some((m) => m.silver || m.harvest)
+  ownId.settled = ownId.matches.some((m) => m.fame || m.silver || m.harvest)
 
   if (joinIds.length === 0) {
     ownId.note = 'no Join response in the recording — change zone once while recording'
   } else if (ownId.settled) {
-    ownId.note = 'a Join param 0 is the actor of an own-only packet: that is the member'
+    ownId.note = 'a Join param 0 acts in fame, silver or harvest: that is the member (the id is reissued on every join)'
   } else if (ownId.matches.some((m) => m.causedHits > 0)) {
-    ownId.note = 'Join param 0 causes hits but no own-only packet confirms it — pick up silver or gather once'
+    ownId.note = 'Join param 0 causes hits but no fame, silver or harvest confirms it — earn fame or gather once'
   } else {
     ownId.note = 'Join param 0 appears on no combat or own-only packet — the Q24 mismatch stands; record a fight AND a pickup in the same zone'
   }
@@ -420,7 +427,7 @@ const render = (summary, options = {}) => {
     out.push(`  ${summary.ownId.note}`)
   } else {
     for (const m of summary.ownId.matches) {
-      out.push(`  Join param 0 = ${m.objectId}: silver pickup ${m.silver ? 'yes' : 'no'} · harvest ${m.harvest ? 'yes' : 'no'} · caused ${m.causedHits} hits · took ${m.tookHits} hits · NewCharacter name ${m.namedByNewCharacter ?? '—'}`)
+      out.push(`  Join param 0 = ${m.objectId}: fame ${m.fame ? 'yes' : 'no'} · silver pickup ${m.silver ? 'yes' : 'no'} · harvest ${m.harvest ? 'yes' : 'no'} · caused ${m.causedHits} hits · took ${m.tookHits} hits · NewCharacter name ${m.namedByNewCharacter ?? '—'}`)
     }
 
     out.push(`  → ${summary.ownId.note}`)

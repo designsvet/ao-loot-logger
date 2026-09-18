@@ -22,7 +22,7 @@ const openWorld = () => [
   ev(2, 123, { 0: 1058092, 1: 482, 13: 20, 14: 20 }),
   ev(3, 6, { 0: 1058092, 1: 31709739, 2: -12, 3: 8, 4: 2, 5: 5, 6: ME, 7: 2762 }),
   ev(4, 6, { 0: 1058092, 1: 31709989, 2: -9, 4: 2, 5: 5, 6: ME, 7: 2762 }), // no param 3: the killing blow
-  ev(4, 82, { 0: 66459, 1: 'bigint:13148746629585', 2: 5828386, 5: true }),
+  ev(4, 82, { 0: ME, 1: 'bigint:13148746629585', 2: 5828386, 5: true }),
   ev(6, 61, { 0: ME, 3: 67942, 4: 4738, 5: 9, 6: 2, 7: 1 }),
   ev(7, 62, { 0: ME, 1: 31710000, 2: 1166287, 3: 500000000, 8: 10000 }),
   req(8, 316, { 0: 1, 2: 5391 }),
@@ -50,6 +50,7 @@ test('settles the own object id when a join id is the actor of an own-only packe
 
   assert.deepEqual(summary.ownId.joinIds, [ME])
   assert.equal(summary.ownId.settled, true)
+  assert.equal(summary.ownId.matches[0].fame, true)
   assert.equal(summary.ownId.matches[0].silver, true)
   assert.equal(summary.ownId.matches[0].harvest, true)
   assert.equal(summary.ownId.matches[0].causedHits, 2)
@@ -76,7 +77,7 @@ test('grades R1 item by item, naming what is missing', () => {
 
   assert.equal(r1['fame events'].pass, true)
   assert.equal(r1['a killing blow in the health updates'].pass, true)
-  assert.equal(r1['own object id settled (Join param 0 seen on an own-only packet)'].pass, true)
+  assert.equal(r1['own object id settled (a Join param 0 acts in fame, silver or harvest)'].pass, true)
   assert.equal(r1['fishing casts, five or more'].pass, false)
   assert.equal(r1['fishing casts, five or more'].why, 'five casts')
   assert.equal(r1['two or more zone joins'].pass, false)
@@ -130,7 +131,7 @@ test('render prints the checklist lines the operator reads', () => {
   assert.match(text, /PASS\s+fame events/)
   assert.match(text, /MISSING fishing casts, five or more\s+← five casts/)
   assert.doesNotMatch(text, /R2 — a city/)
-  assert.match(text, /Join param 0 = 412783: silver pickup yes/)
+  assert.match(text, /Join param 0 = 412783: fame yes · silver pickup yes/)
 })
 
 test('parseArgs: naming one checklist hides the other, naming none shows both', () => {
@@ -198,4 +199,15 @@ test('market replies report their return code, and say so when a recording preda
   assert.deepEqual(byId[79], { 0: 1, 1: 1 })
   assert.deepEqual(byId[80], { 'not recorded': 1 })
   assert.match(render(summary, { r1: false, r2: false }), /response 79 {3}AuctionCreateOffer\s+0×1 {2}1×1/)
+})
+
+test('another player picking up silver never settles the own id — only the join id acting does', () => {
+  const summary = analyze([
+    resp(0, 2, { 0: ME, 2: 'Bors', 8: '3012' }),
+    ev(1, 62, { 0: 55555, 3: 500000000 }), // a partymate's pickup, broadcast to us
+    ev(2, 61, { 0: 55555, 4: 1030, 5: 1 })
+  ])
+
+  assert.equal(summary.ownId.settled, false)
+  assert.equal(summary.ownId.matches[0].silver, false)
 })
