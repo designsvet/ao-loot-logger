@@ -6,33 +6,24 @@ const ParserError = require('../parser-error')
 const name = 'EvNewEquipmentItem'
 
 /**
- * Local patch: an item the table does not know is still an item.
+ * Local patch: an item the table cannot name is still an item.
  *
- * `Items.init()` fetches ao-bin-dumps at startup and falls back to a list
- * frozen at build time, so for a while after every game patch a new item has no
- * name here. Returning was the old behaviour and it is asymmetric in the worst
- * direction: `EvOtherGrabbedLoot` already falls back to `UNKNOWN_<id>` and logs,
- * so ANOTHER player's pickup of a new item was recorded while YOUR OWN vanished
+ * Returning was the old behaviour and it was asymmetric in the worst direction:
+ * `EvOtherGrabbedLoot` already fell back to `UNKNOWN_<id>` and logged, so
+ * ANOTHER player's pickup of a new item was recorded while YOUR OWN vanished
  * with nothing but a warning on a console nobody reads. A member could donate
- * gear that never appeared in their looted column.
+ * gear that never appeared in their looted column. `Items.resolve` gives every
+ * handler the same answer — and since 2026-09-18 it answers `UNKNOWN_<id>` for
+ * EVERY item until a current table is loaded (src/items.js), so dropping here
+ * would now drop everything.
  *
  * An unnamed item is honest and joinable by id downstream; a missing one is not
  * recoverable at all.
  */
-const withFallback = (item, itemNumId) => {
-  return item ?? { itemId: `UNKNOWN_${itemNumId}`, itemName: `Unknown Item (${itemNumId})` }
-}
-
 function handle(event) {
   const { objectId, itemNumId, quantity } = parse(event)
 
-  const found = Items.get(itemNumId)
-
-  if (found == null) {
-    Logger.warn(`item num id not found`, itemNumId)
-  }
-
-  const { itemId, itemName } = withFallback(found, itemNumId)
+  const { itemId, itemName } = Items.resolve(itemNumId)
 
   let loot = MemoryStorage.loots.getById(objectId)
 

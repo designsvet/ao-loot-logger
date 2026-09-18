@@ -8,13 +8,9 @@ const name = 'EvNewSiegeBannerItem'
 function handle(event) {
   const { objectId, itemNumId, quantity } = parse(event)
 
-  const item = Items.get(itemNumId)
-
-  if (item == null) {
-    return Logger.warn(`item num id not found`, itemNumId)
-  }
-
-  const { itemId, itemName } = item
+  // Local patch: registered as UNKNOWN_<id> when the table cannot name it, like
+  // every other item (ev-new-simple-item.js), instead of being dropped.
+  const { itemId, itemName } = Items.resolve(itemNumId)
 
   let loot = MemoryStorage.loots.getById(objectId)
 

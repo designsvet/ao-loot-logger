@@ -2,6 +2,7 @@ const MemoryStorage = require('../../storage/memory-storage')
 const Logger = require('../../utils/logger')
 const PendingSelfLoots = require('../../pending-self-loots')
 const AssignmentWritten = require('../../storage/assignment-written')
+const Items = require('../../items')
 const OwnContainers = require('../../storage/own-containers')
 const ParserError = require('../parser-error')
 
@@ -36,6 +37,10 @@ function handle(event) {
   // last map wrote (storage/assignment-written.js) mean nothing here — and one
   // left over must not silence a real pickup that happens to reuse its number.
   AssignmentWritten.clear()
+
+  // Local patch: a newer item table takes over here, between zones, never inside
+  // one — see Items.onZoneChange in src/items.js.
+  Items.onZoneChange()
 
   Logger.debug('OpJoin', player, event.parameters)
 }

@@ -77,11 +77,16 @@ function handle(event) {
       continue
     }
 
-    const item = Items.get(itemTypeIds[i])
-
-    if (item == null) {
+    // Not an item index at all: a payload shape these indices miss.
+    if (typeof itemTypeIds[i] !== 'number') {
       continue
     }
+
+    // An item the table cannot name is still assigned to someone. It used to be
+    // skipped here, which was a silently missing line for anything newer than
+    // the table — and, since there is no fallback table any more (src/items.js),
+    // would be every line until a current one loads. Written as UNKNOWN_<id>.
+    const item = Items.resolve(itemTypeIds[i])
 
     const isSelf = playerName === selfName
 

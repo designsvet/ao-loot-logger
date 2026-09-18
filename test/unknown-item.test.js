@@ -8,12 +8,14 @@ process.setMaxListeners(50)
 /**
  * An item the table does not know is still an item.
  *
- * `Items.init()` fetches ao-bin-dumps at startup and falls back to a list frozen
- * at build time, so for a while after every game patch a new item has no name.
- * The two handlers for YOUR OWN items used to return on that, while
- * `EvOtherGrabbedLoot` fell back to `UNKNOWN_<id>` and logged — so another
- * player's pickup of a new item was recorded and yours vanished with a console
- * warning. A member could donate gear that never appeared in their looted column.
+ * For a while after every game patch a new item has no name here, and since
+ * 2026-09-18 NO item has one until a current table loads (src/items.js — the
+ * frozen fallback named nearly every index wrongly). The two handlers for YOUR
+ * OWN items used to return on an unknown item, while `EvOtherGrabbedLoot` fell
+ * back to `UNKNOWN_<id>` and logged — so another player's pickup of a new item
+ * was recorded and yours vanished with a console warning. A member could donate
+ * gear that never appeared in their looted column. The chest assignment and the
+ * siege banner still dropped theirs until the same date.
  */
 
 const NEW_TO_THE_GAME = 999_999
@@ -63,4 +65,48 @@ test('an unknown item reaches the log rather than being dropped at the pickup', 
 
   assert.equal(written.length, 1)
   assert.equal(written[0].itemId, `UNKNOWN_${NEW_TO_THE_GAME}`)
+})
+
+test('a chest assignment of an item the table does not know is still written, as UNKNOWN_<id>', (t) => {
+  const s = withItems(t)
+  const written = []
+  s.LootLogger.write = (row) => written.push(row)
+
+  // No container registered for 77, so it is taken as a chest; one known item, one new one.
+  s.EvPartyLootItems.handle({
+    parameters: { 0: 77, 1: [501, 502], 2: [1, NEW_TO_THE_GAME], 9: [1, 2], 10: ['Aly', 'Bors'], 252: 302 }
+  })
+
+  assert.deepEqual(
+    written.map((row) => [row.lootedBy.playerName, row.itemId, row.quantity]),
+    [
+      ['Aly', 'T4_BAG', 1],
+      ['Bors', `UNKNOWN_${NEW_TO_THE_GAME}`, 2]
+    ],
+    'the second row used to be skipped without a word'
+  )
+})
+
+test('a siege banner the table does not know is still registered', (t) => {
+  const s = withItems(t)
+  const EvNewSiegeBannerItem = require('../src/data-handler/event-data/ev-new-siege-banner-item')
+
+  EvNewSiegeBannerItem.handle({ parameters: { 0: 14, 1: NEW_TO_THE_GAME, 2: 1 } })
+
+  assert.equal(s.MemoryStorage.loots.getById(14)?.itemId, `UNKNOWN_${NEW_TO_THE_GAME}`)
+})
+
+test('with NO current table — a startup that could not download one — nothing is named at all', (t) => {
+  const s = fresh()
+  const written = []
+  s.LootLogger.write = (row) => written.push(row)
+
+  assert.equal(s.Items.source, 'none', 'the state a failed startup leaves')
+
+  s.EvOtherGrabbedLoot = require('../src/data-handler/event-data/ev-other-grabbed-loot')
+  s.EvOtherGrabbedLoot.handle({ parameters: { 1: 'DeadGuy', 2: 'Aly', 3: false, 4: 3018, 5: 1 } })
+  s.EvNewEquipmentItem.handle({ parameters: { 0: 15, 1: 3018, 2: 1 } })
+
+  assert.equal(written[0].itemId, 'UNKNOWN_3018', "another player's pickup")
+  assert.equal(s.MemoryStorage.loots.getById(15).itemId, 'UNKNOWN_3018', 'your own')
 })
