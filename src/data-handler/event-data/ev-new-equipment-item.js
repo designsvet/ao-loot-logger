@@ -28,7 +28,12 @@ function handle(event) {
   let loot = MemoryStorage.loots.getById(objectId)
 
   if (loot == null) {
-    loot = MemoryStorage.loots.add({ objectId, itemId, itemName, quantity })
+    loot = MemoryStorage.loots.add({ objectId, itemNumId, itemId, itemName, quantity })
+  }
+
+  // Local patch: the index too, so a new item table can rename what is held (LootsStorage.rename).
+  if (loot.itemNumId !== itemNumId) {
+    loot.itemNumId = itemNumId
   }
 
   if (loot.itemId !== itemId) {

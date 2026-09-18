@@ -88,99 +88,16 @@ stack being re-announced while the chest window is legitimately open, so no amou
 of window tightening reaches it. Both need the destination container to be
 identifiable as yours, and nothing measured so far provides it.
 
-**An item the table does not know is still logged.** For a few hours after
-every game patch a new item has no name here, and with no current item table at
-all (next section) no item has one. Your OWN pickups of such an item used to be
+**An item the table does not know is still logged.** After a game patch a new
+item has no name here until ao-bin-dumps publishes the new list, and with no
+current item table at all (next section) no item has one. Your OWN pickups of
+such an item used to be
 dropped with only a console warning, while ANOTHER player's were logged as
 `UNKNOWN_<id>` — so a member could donate gear that never appeared in their
 looted column. Every path now falls back the same way, the chest assignment and
 the siege banner included (they still dropped theirs until 2026-09-18): an
 unnamed item is honest and joinable by id downstream, a missing one is not
 recoverable at all.
-
-## Item names: from a current table, or not at all
-
-The game sends an item as a NUMBER — its position in the game's own item list —
-and the engine names it from a copy of that list (ao-bin-dumps'
-`formatted/items.txt`). The list is positional, so one item inserted near the
-top renumbers everything below it. Measured 2026-09-18 across every version
-ao-bin-dumps published since 2025-04-23: 18 of 19 updates renumbered between
-4.6% and 99.8% of the table (the 19th was a byte-identical re-upload), one to
-seven weeks apart. A copy of the list is right until the next patch, and then
-wrong nearly everywhere at once.
-
-Until 2026-09-18 the engine fell back to a copy bundled in `src/items-fallback.js`
-whenever the startup download failed — no network, a GitHub hiccup, an 8-second
-timeout, or the capture app starting before Wi-Fi did. That copy was frozen on
-2026-07-21. Against the current list it named **12,049 of its 12,071 numbers
-wrongly** (first difference at 23: `T3_FARM_OX_BABY`, now `T8_FARM_DRAKE_BABY`;
-184 is `T1_SEAWEED`, it said `T1_FISHSAUCE_LEVEL3`; 3018 is a fishing rod, it said
-`T8_MOUNT_ARMORED_HORSE_MORGANA@1`). Replayed against the 2026-09-16 five-hour
-recording, it named **6 of 22,891** item events correctly. Practically every loot
-line of such a session named the wrong item, the bot priced and judged the wrong
-item, and the only trace was one console line.
-
-**The rule now: names come only from a table known to be current this run.**
-
-- **At startup** the engine downloads the list (8s limit, as before). If it
-  keeps a copy from an earlier run (`items-cache.json`), it asks the server
-  whether that copy is still current; a `304` answer means yes and costs no
-  download. A copy is **never used without that answer**: offline there is no
-  telling whether a patch has happened since it was saved, and a copy one patch
-  behind names the wrong item — exactly the failure above.
-- **With no current table**, every item is written as `UNKNOWN_<number>` /
-  `Unknown Item (<number>)`, the marker this engine already used for items newer
-  than its table. It is inside the bot's line format (`AO_LOOT_RE`), the bot
-  already reads it as "the engine's table is behind the game" and prices it as
-  unknown, never as zero — and it keeps the number, so a current table can name
-  it later. No change to the loot file's format.
-- **A failed startup keeps trying** in the background: 15s, 30s, 1m, 2m, 5m,
-  then every 10m. A table that arrives takes over **at the next zone change**,
-  never mid-zone: our own chest share is matched to the pickup that follows it
-  by item type (`storage/assignment-written.js`), and an `UNKNOWN_` on one side
-  and a real name on the other would not match, writing the pickup twice.
-- **A running engine re-checks every 30 minutes** (a `304` again, so no
-  download), because a capture app left open for days outlives a patch. A
-  changed list is announced and takes over at the next zone change the same way.
-  A failed re-check keeps the table in hand: it was current when last confirmed.
-- **A download that is not a whole table is refused**: fewer than 10,000
-  entries, a number out of sequence, or an id the bot's parser would not accept.
-  All 20 published versions pass (11,589–12,237 entries, numbered 1..N).
-
-What it looks like on the console:
-
-```
-[items] 12237 item names loaded (downloaded).
-[items] 12237 item names loaded (cached copy, confirmed current).
-[items] No current item table (offline, or the address does not resolve), so loot is written as UNKNOWN_<item number>
-[items] Current item table arrived (12237 items); names resume at your next zone change.
-[items] Naming items from the current table now (12237 items).
-```
-
-The cache lives beside the loot log when you run the engine by hand, and in the
-capture app's per-user captures folder when the app runs it (the app sets that
-as the working folder). It is a cache only — delete it at will. Nothing printed
-here uses the words the capture app reads as a capture-permission failure
-(`EACCES`, `EPERM`, "permission denied"), so a firewall or a read-only folder
-cannot stop the app restarting the engine; `npm test` pins that.
-
-Weighed and not done:
-
-- **Keep a bundled copy, refreshed at build time** (the capture app's CI already
-  prepares the engine). A fresh build would be right only until the next patch
-  — one to seven weeks — and then wrong everywhere with nothing to say so. That
-  is the old failure on a timer, so the bundled copy is deleted outright rather
-  than kept as a trap.
-- **Trust the cached copy offline when it is young.** A day-old copy is right
-  most of the time, but when a patch lands inside that day it names every item
-  wrongly, confidently. An `UNKNOWN_` loses nothing that a current table cannot
-  recover; a wrong name does.
-- **Sanity-check a table against the traffic.** Neither signal holds up on the
-  2026-09-16 recording: the highest number the game sent in five hours was
-  11,920, inside even the stale copy's 12,071, so "a number past the end" never
-  fires; and "equipment events name equipment" scored 82% on the stale copy
-  against 87% on the current one — the lists are grouped by family, so a shift
-  mostly lands on another item of the same kind.
 
 **Chest attribution depends on the party's LOOT MODE — this is the big one.**
 
@@ -229,6 +146,104 @@ the silence was the instrument's, not the server's.
 
 The file is created lazily, on the first captured pickup, so an empty folder
 usually means "nothing qualifying has been looted yet".
+
+## Item names: from a current table, or not at all
+
+The game sends an item as a NUMBER — its position in the game's own item list —
+and the engine names it from a copy of that list (ao-bin-dumps'
+`formatted/items.txt`). The list is positional, so one item inserted near the
+top renumbers everything below it. Measured 2026-09-18 across every version
+ao-bin-dumps published since 2025-04-23: 18 of 19 updates renumbered between
+4.6% and 99.8% of the table (the 19th was a byte-identical re-upload), one to
+seven weeks apart. A copy of the list is right until the next patch, and then
+wrong nearly everywhere at once.
+
+Until 2026-09-18 the engine fell back to a copy bundled in `src/items-fallback.js`
+whenever the startup download failed — no network, a GitHub hiccup, an 8-second
+timeout, or the capture app starting before Wi-Fi did. That copy was frozen on
+2026-07-21. Against the current list it named **12,049 of its 12,071 numbers
+wrongly** (first difference at 23: `T3_FARM_OX_BABY`, now `T8_FARM_DRAKE_BABY`;
+184 is `T1_SEAWEED`, it said `T1_FISHSAUCE_LEVEL3`; 3018 is a fishing rod, it said
+`T8_MOUNT_ARMORED_HORSE_MORGANA@1`). Replayed against the 2026-09-16 five-hour
+recording, it named **6 of 22,891** item events correctly. Practically every loot
+line of such a session named the wrong item, the bot priced and judged the wrong
+item, and the only trace was one console line.
+
+**The rule now: names come only from a table known to be current this run.**
+
+- **At startup** the engine downloads the list (8s limit, as before). If it
+  keeps a copy from an earlier run (`items-cache.json`), it asks the server
+  whether that copy is still current; a `304` answer means yes and costs no
+  download. A copy is **never used without that answer**: offline there is no
+  telling whether a patch has happened since it was saved, and a copy one patch
+  behind names the wrong item — exactly the failure above.
+- **With no current table**, every item is written as `UNKNOWN_<number>` /
+  `Unknown Item (<number>)`, the marker this engine already used for items newer
+  than its table. It is inside the bot's line format (`AO_LOOT_RE`), the bot
+  already reads it as "the engine's table is behind the game" and prices it as
+  unknown, never as zero — and it keeps the number, so a current table can name
+  it later. No change to the loot file's format.
+- **A failed startup keeps trying** in the background: 15s, 30s, 1m, 2m, 5m,
+  then every 10m. A table that arrives takes over **at the next zone change**,
+  never mid-zone: our own chest share is matched to the pickup that follows it
+  by item type (`storage/assignment-written.js`), and an `UNKNOWN_` on one side
+  and a real name on the other would not match, writing the pickup twice. The
+  new map's own items can arrive before its Join response (seen in
+  `test-fixtures-packets.json`), so items already held are renamed by the new
+  table at that moment too.
+- **A running engine re-checks every 30 minutes** (a `304` again, so no
+  download), because a capture app left open for days outlives a patch. A
+  changed list is announced and takes over at the next zone change the same way.
+  A failed re-check keeps the table in hand: it was current when last confirmed.
+- **A download that is not a whole table is refused**: fewer than 10,000
+  entries, a number out of sequence, or an id the bot's parser would not accept.
+  All 20 published versions pass (11,589–12,237 entries, numbered 1..N).
+
+**"Current" means current as ao-bin-dumps publishes it, not as the game has
+it.** The list is dumped from the game client after a patch, and the dump can
+lag. On 2026-09-01 at 20:36 UTC madvac's fork committed a list with the new
+numbering while ao-bin-dumps still served the July one. It caught up on
+2026-09-03 at 11:46 UTC, with the same 12,237 ids in the same positions. For at
+least 39 hours, then, a download that succeeded named items wrongly: existing
+items carried the wrong names, not only new ones going unnamed, because the
+list is positional. Nothing in the traffic shows this is happening (see the
+last point below). The 30-minute re-check picks up the new list once it is
+published.
+
+What it looks like on the console:
+
+```
+[items] 12237 item names loaded (downloaded).
+[items] 12237 item names loaded (cached copy, confirmed current).
+[items] No current item table (offline, or the address does not resolve), so loot is written as UNKNOWN_<item number>
+[items] Current item table arrived (12237 items); names resume at your next zone change.
+[items] Naming items from the current table now (12237 items).
+```
+
+The cache lives beside the loot log when you run the engine by hand, and in the
+capture app's per-user captures folder when the app runs it (the app sets that
+as the working folder). It is a cache only — delete it at will. Nothing printed
+here uses the words the capture app reads as a capture-permission failure
+(`EACCES`, `EPERM`, "permission denied"), so a firewall or a read-only folder
+cannot stop the app restarting the engine; `npm test` pins that.
+
+Weighed and not done:
+
+- **Keep a bundled copy, refreshed at build time** (the capture app's CI already
+  prepares the engine). A fresh build would be right only until the next patch
+  — one to seven weeks — and then wrong everywhere with nothing to say so. That
+  is the old failure on a timer, so the bundled copy is deleted outright rather
+  than kept as a trap.
+- **Trust the cached copy offline when it is young.** A day-old copy is right
+  most of the time, but when a patch lands inside that day it names every item
+  wrongly, confidently. An `UNKNOWN_` loses nothing that a current table cannot
+  recover; a wrong name does.
+- **Sanity-check a table against the traffic.** Neither signal holds up on the
+  2026-09-16 recording: the highest number the game sent in five hours was
+  11,920, inside even the stale copy's 12,071, so "a number past the end" never
+  fires; and "equipment events name equipment" scored 82% on the stale copy
+  against 87% on the current one — the lists are grouped by family, so a shift
+  mostly lands on another item of the same kind.
 
 ## Local patches on top of the fork
 

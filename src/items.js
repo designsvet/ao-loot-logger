@@ -32,6 +32,10 @@ const Logger = require('./utils/logger')
  * A failed startup keeps trying in the background, and a running engine re-checks every half hour,
  * because a capture app left open for days outlives a patch. Either way a new table takes over at
  * the next zone change, never mid-zone (see `onZoneChange`).
+ *
+ * "Current" is only as current as ao-bin-dumps. Its dump lagged the September 2026 patch by at
+ * least 39 hours (madvac committed the new numbering 2026-09-01 20:36 UTC, ao-bin-dumps 2026-09-03
+ * 11:46 UTC), and nothing in the traffic can tell (README-mac.md, "Item names").
  */
 
 const ITEMS_URL = 'https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.txt'
@@ -320,19 +324,22 @@ class Items {
   }
 
   /**
-   * Called by OpJoin, after the zone's own bookkeeping is reset. A new table takes over HERE, not
-   * the moment it lands, so one zone is never named by two tables: our own chest share is matched
-   * to the pickup that follows it by item TYPE (storage/assignment-written.js), and `UNKNOWN_123`
-   * on one side and a real name on the other would not match — the pickup would be written twice.
+   * Called by OpJoin, after the zone's own bookkeeping is reset; true when a new table took over.
+   * It takes over HERE, not the moment it lands, so one zone is never named by two tables: our own
+   * chest share is matched to the pickup that follows it by item TYPE
+   * (storage/assignment-written.js), and `UNKNOWN_123` on one side and a real name on the other
+   * would not match — the pickup would be written twice. OpJoin renames what is already held.
    */
   onZoneChange() {
     if (this.pending == null) {
-      return
+      return false
     }
 
     this.use(this.pending)
     this.pending = null
     this.io.log(`[items] Naming items from the current table now (${this.count} items).`)
+
+    return true
   }
 
   use(table) {

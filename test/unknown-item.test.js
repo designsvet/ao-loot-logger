@@ -110,3 +110,20 @@ test('with NO current table — a startup that could not download one — nothin
   assert.equal(written[0].itemId, 'UNKNOWN_3018', "another player's pickup")
   assert.equal(s.MemoryStorage.loots.getById(15).itemId, 'UNKNOWN_3018', 'your own')
 })
+
+test('a chest assignment entry that is not an item index writes nothing, as before', (t) => {
+  const s = withItems(t)
+  const written = []
+  s.LootLogger.write = (row) => written.push(row)
+
+  // 0, a negative and a fraction are not positions in a list numbered from 1. UNKNOWN_0 would be
+  // a pickup that never happened, and UNKNOWN_-1 a line the bot's parser refuses.
+  s.EvPartyLootItems.handle({
+    parameters: { 0: 78, 1: [601, 602, 603, 604], 2: [0, -1, 1.5, 1], 9: [1, 1, 1, 1], 10: ['Aly', 'Aly', 'Aly', 'Aly'], 252: 302 }
+  })
+
+  assert.deepEqual(
+    written.map((row) => row.itemId),
+    ['T4_BAG']
+  )
+})

@@ -81,13 +81,26 @@ const start = async (t, { answers = [], dir = tmpDir(t) } = {}) => {
   const timers = []
   const queue = [...answers]
 
+  // Checked when the test ends: an assert thrown inside fetch would only become download()'s
+  // failure reason, and the test would carry on.
+  let unexpected = 0
+
+  t.after(() => {
+    assert.equal(unexpected, 0, 'requests nobody expected')
+    assert.equal(queue.length, 0, 'answers nobody asked for')
+  })
+
   const io = {
     fetch: (url, init) => {
       requests.push({ url, headers: init.headers ?? {} })
 
       const answer = queue.shift()
 
-      assert.ok(answer, `an unexpected request, #${requests.length}`)
+      if (answer == null) {
+        unexpected += 1
+
+        return offline()
+      }
 
       return answer === offline ? offline() : Promise.resolve(answer())
     },
@@ -254,10 +267,15 @@ test('a failed startup keeps trying, and a table that arrives takes over at the 
   assert.equal(s.Items.source, 'none')
   assert.equal(s.Items.resolve(3018).itemId, 'UNKNOWN_3018')
 
+  // The next map's own items can arrive before its Join response; what is held is renamed.
+  s.EvNewSimpleItem.handle({ parameters: { 0: 4000, 1: 3018, 2: 1 } })
+  assert.equal(s.MemoryStorage.loots.getById(4000).itemId, 'UNKNOWN_3018')
+
   s.join()
 
   assert.equal(s.Items.source, 'live')
   assert.equal(s.Items.resolve(3018).itemId, ROD)
+  assert.equal(s.MemoryStorage.loots.getById(4000).itemId, ROD)
   assert.match(s.logs.at(-1), /Naming items from the current table now/)
   assert.equal(s.timers[0].ms, s.Items.RECHECK_MS, 'from then on, the slow re-check')
 })

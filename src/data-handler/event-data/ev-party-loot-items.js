@@ -77,8 +77,10 @@ function handle(event) {
       continue
     }
 
-    // Not an item index at all: a payload shape these indices miss.
-    if (typeof itemTypeIds[i] !== 'number') {
+    // Not an item index at all (items are numbered from 1): a payload shape these
+    // indices miss, or a filler. Skipped, as it always was — an UNKNOWN_0 would be
+    // a pickup that never happened.
+    if (!Number.isInteger(itemTypeIds[i]) || itemTypeIds[i] < 1) {
       continue
     }
 
