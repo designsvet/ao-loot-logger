@@ -166,6 +166,20 @@ Kept in one commit so `git pull madvac main` stays easy:
    own container, is now dropped (`src/storage/own-containers.js`,
    `src/storage/recent-moves.js`). A withdrawal from a guild chest near a named
    chest is still indistinguishable from loot.
+5. **Run by Guild Butler Capture, the loot log goes to the app's captures
+   folder, not into the app** (2026-09-18). The app starts the engine with
+   `ELECTRON_RUN_AS_NODE=1`, working in its per-user captures folder, but the
+   log went beside the engine anyway, and for the engine the app bundles that
+   is inside the installed app. Measured on this Mac with app 0.8.2: three loot
+   logs in `Guild Butler Capture.app/Contents/Resources/engine`, which
+   `codesign --verify --deep --strict` named as the only files breaking the
+   bundle's seal, and none in
+   `~/Library/Application Support/guild-butler-capture/captures`. On Windows
+   that folder is the install dir, which every update replaces, and a Mac user
+   without admin rights cannot write there at all. The log now follows the
+   working folder when the app runs the engine, as `debug-logs.txt` and the
+   packet dumps already did. A run by hand still writes beside this clone
+   (`logDir` in `src/loot-logger.js`).
 
 ## Notes
 
