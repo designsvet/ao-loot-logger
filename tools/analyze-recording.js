@@ -44,7 +44,14 @@ const TARGETS = [
   { key: 'harvest', label: 'Harvest finished', kind: 'event', id: 61 },
   { key: 'fishStart', label: 'Fishing start (request)', kind: 'request', id: 316 },
   { key: 'fishCatch', label: 'Fishing catch (request)', kind: 'request', id: 319 },
-  { key: 'fishFinish', label: 'Fishing finish (request)', kind: 'request', id: 322, qualify: { label: 'failed (param 1 false)', test: (p) => p['1'] === false } },
+  // A failed catch OMITS param 1 rather than sending false (recorded 2026-09-18) — the same
+  // "absent, never zero" rule the item values follow. Testing for `=== false` never matches.
+  { key: 'fishFinish', label: 'Fishing finish (request)', kind: 'request', id: 322, qualify: { label: 'failed (param 1 absent)', test: (p) => p['1'] !== true } },
+  // The server's own state machine for a bout: 3 line out · 4 cast · 5 bite · 7/8 a tug
+  // · 9 landed · 10 escaped · 15 aborted. Recorded 2026-09-16/18; the reference tool
+  // leaves this event unhandled.
+  { key: 'fishLanded', label: 'Fishing state (event)', kind: 'event', id: 355, qualify: { label: 'landed (state 9)', test: (p) => num(p['3']) === 9 } },
+  { key: 'fishEscaped', label: 'Fishing state (event)', kind: 'event', id: 355, qualify: { label: 'escaped (state 10)', test: (p) => num(p['3']) === 10 } },
   { key: 'fishCancel', label: 'Fishing cancel (request)', kind: 'request', id: 323 },
   { key: 'reward', label: 'Reward granted', kind: 'event', id: 267 },
   { key: 'chest', label: 'New loot chest', kind: 'event', id: 393 },
@@ -54,6 +61,8 @@ const TARGETS = [
   { key: 'shrine', label: 'New shrine', kind: 'event', id: 397 },
   { key: 'dungeonExit', label: 'Random dungeon exit', kind: 'event', id: 325 },
   { key: 'stationStart', label: 'Station action start (request)', kind: 'request', id: 55, qualify: { label: 'repair (type 2)', test: (p) => num(p['2']) === 2 } },
+  { key: 'craftStart', label: 'Station action start (request)', kind: 'request', id: 55, qualify: { label: 'craft (type 1)', test: (p) => num(p['2']) === 1 } },
+  { key: 'journalFull', label: 'Journal got full', kind: 'event', id: 292 },
   { key: 'stationInfo', label: 'Craft building info', kind: 'event', id: 49 },
   { key: 'stationDone', label: 'Station action finished', kind: 'event', id: 66 },
   { key: 'craftDone', label: 'Craft item finished', kind: 'event', id: 71 },
@@ -88,7 +97,7 @@ const R1 = [
   { label: 'mobs announced', test: (c) => c.mob >= 3, why: 'three or more kinds nearby' },
   { label: 'harvests finished, three or more', test: (c) => c.harvest >= 3, why: 'three resource types with a tool' },
   { label: 'fishing casts, five or more', test: (c) => c.fishStart >= 5, why: 'five casts' },
-  { label: 'a failed cast', test: (c) => c.fishFinish_q >= 1, why: 'let one fish escape' },
+  { label: 'a failed cast', test: (c) => c.fishEscaped_q >= 1 || c.fishFinish_q >= 1, why: 'let one fish escape' },
   { label: 'a fishing reward', test: (c) => c.reward >= 1, why: 'land one' },
   { label: 'chests seen, two or more', test: (c) => c.chest >= 2, why: 'open two chests' },
   { label: 'a chest opened', test: (c) => c.chestUpdate_q >= 1, why: 'open one yourself' },
@@ -105,7 +114,10 @@ const R2 = [
   { label: 'a buy order placed', test: (c) => c.createRequest >= 1, why: 'place one (op 80)' },
   { label: 'mail list', test: (c) => c.mailList >= 1, why: 'open the mailbox' },
   { label: 'mail body', test: (c) => c.mailBody >= 1, why: 'open one sold mail' },
-  { label: 'station actions, two crafts', test: (c) => c.stationStart - c.stationStart_q >= 2, why: 'craft two items' },
+  // One craft action can make many items (8 scythes in one, 2026-09-16), so the test is
+  // an action, not a count of two.
+  { label: 'a craft action', test: (c) => c.craftStart_q >= 1, why: 'craft anything' },
+  { label: 'a crafting journal filled', test: (c) => c.journalFull >= 1, why: 'craft with an empty journal in your bag' },
   { label: 'a repair', test: (c) => c.stationStart_q >= 1, why: 'repair something' },
   { label: 'the station named itself', test: (c) => c.stationInfo >= 1, why: 'event 49 on entering the station' },
   { label: 'craft finished events', test: (c) => c.craftDone >= 2, why: 'wait for both crafts' },
@@ -198,7 +210,19 @@ const analyze = (records, options = {}) => {
   const census = new Map()
   const perKind = { event: 0, request: 0, response: 0, other: 0 }
   const hits = new Map(TARGETS.map((t) => [t.key, { count: 0, qualified: 0, profiles: new Map(), samples: [] }]))
-  const targetIndex = new Map(TARGETS.map((t) => [`${t.kind}:${t.id}`, t]))
+  // Several targets may watch one code (event 355 is both "landed" and "escaped").
+  const targetIndex = new Map()
+
+  for (const t of TARGETS) {
+    const key = `${t.kind}:${t.id}`
+
+    targetIndex.set(key, [...(targetIndex.get(key) ?? []), t])
+  }
+
+  // What the game answered each market action — the only proof a deal went through,
+  // because the reply's parameter table is empty.
+  const MARKET_REPLIES = new Set([79, 80, 83, 315, 244, 245])
+  const replies = new Map()
   const joins = []
   const ownOnly = { silver: new Set(), harvest: new Set() }
   const healthCausers = new Map()
@@ -224,9 +248,7 @@ const analyze = (records, options = {}) => {
 
     census.set(censusKey, (census.get(censusKey) ?? 0) + 1)
 
-    const target = targetIndex.get(censusKey)
-
-    if (target) {
+    for (const target of targetIndex.get(censusKey) ?? []) {
       const hit = hits.get(target.key)
       const profile = keyProfile(payload)
 
@@ -240,6 +262,14 @@ const analyze = (records, options = {}) => {
       if (hit.samples.length < samplesWanted) {
         hit.samples.push(compact(payload))
       }
+    }
+
+    if (kind === 'response' && MARKET_REPLIES.has(id)) {
+      const code = record.rc == null ? 'not recorded' : String(record.rc)
+      const row = replies.get(id) ?? new Map()
+
+      row.set(code, (row.get(code) ?? 0) + 1)
+      replies.set(id, row)
     }
 
     // The evidence the "whose object id is me" question needs.
@@ -334,6 +364,7 @@ const analyze = (records, options = {}) => {
     }),
     ownId,
     mails: state.mails,
+    replies: [...replies.entries()].map(([id, codes]) => ({ id, name: nameOf('response', id), codes: Object.fromEntries(codes) })),
     checks: { r1: checklist(R1), r2: checklist(R2) }
   }
 }
@@ -393,6 +424,15 @@ const render = (summary, options = {}) => {
     }
 
     out.push(`  → ${summary.ownId.note}`)
+  }
+
+  if (summary.replies.length > 0) {
+    out.push('')
+    out.push('Market replies — return code per reply (0 = Photon OK; "not recorded" = a recorder older than 2026-09-18)')
+
+    for (const r of summary.replies) {
+      out.push(`  response ${pad(r.id, 4)} ${pad(r.name, 32)} ${Object.entries(r.codes).map(([code, n]) => `${code}×${n}`).join('  ')}`)
+    }
   }
 
   out.push('')
@@ -463,7 +503,13 @@ const main = () => {
   for (const file of options.files) {
     const read = readRecords(path.resolve(file))
 
-    records.push(...read.records)
+    // A spread passes every record as an ARGUMENT, and a real 32-minute recording is
+    // 130k of them: Node throws RangeError: Maximum call stack size exceeded, on
+    // exactly the input this tool exists for. Append one at a time.
+    for (const record of read.records) {
+      records.push(record)
+    }
+
     bad += read.bad
   }
 

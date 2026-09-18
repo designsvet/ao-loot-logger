@@ -216,7 +216,10 @@ class DataHandler {
     // client just made, and unhandled responses have only ever gone to `silly` —
     // console-only, so nothing about them survived the session.
     if (DumpWindow.shouldDump(eventId)) {
-      PacketDump.write('response', eventId, event?.parameters ?? {})
+      PacketDump.write('response', eventId, event?.parameters ?? {}, {
+        returnCode: event?.returnCode,
+        debugMessage: event?.debugMessage
+      })
     }
 
     try {

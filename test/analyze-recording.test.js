@@ -98,7 +98,7 @@ test('grades R2, telling a repair from a craft by the action type', () => {
   const summary = analyze(records)
   const r2 = Object.fromEntries(summary.checks.r2.map((c) => [c.label, c]))
 
-  assert.equal(r2['station actions, two crafts'].pass, true)
+  assert.equal(r2['a craft action'].pass, true)
   assert.equal(r2['a repair'].pass, true)
   assert.equal(r2['the station named itself'].pass, true)
   assert.equal(r2['craft finished events'].pass, true)
@@ -147,4 +147,55 @@ test('the dump\'s bigint spelling reads back as a number; a key profile ignores 
   assert.equal(__test.num(7), 7)
   assert.ok(Number.isNaN(__test.num('seven')))
   assert.equal(__test.keyProfile({ 5: 1, 0: 2, 252: 82, 3: 'x' }), '0,3,5')
+})
+
+// ── What the recordings of 2026-09-16/18 taught the checklists ──────────────────
+
+test('a failed catch OMITS the success flag — that counts, and so does state 10', () => {
+  const absent = analyze([req(1, 322, { 0: 'bigint:639251698507989100' })])
+  const escaped = analyze([ev(1, 355, { 0: 32953, 1: 32966, 2: 3018, 3: 10 })])
+  const landed = analyze([req(1, 322, { 1: true }), ev(2, 355, { 3: 9 })])
+  const r1 = (s) => Object.fromEntries(s.checks.r1.map((c) => [c.label, c.pass]))
+
+  assert.equal(r1(absent)['a failed cast'], true)
+  assert.equal(r1(escaped)['a failed cast'], true)
+  assert.equal(r1(landed)['a failed cast'], false)
+})
+
+test('two targets can watch one code: event 355 counts landings and escapes apart', () => {
+  const summary = analyze([ev(1, 355, { 3: 9 }), ev(2, 355, { 3: 9 }), ev(3, 355, { 3: 10 }), ev(4, 355, { 3: 7 })])
+  const byKey = Object.fromEntries(summary.targets.map((t) => [t.key, t]))
+
+  assert.equal(byKey.fishLanded.count, 4)
+  assert.equal(byKey.fishLanded.qualified.count, 2)
+  assert.equal(byKey.fishEscaped.qualified.count, 1)
+})
+
+test('one craft action passes however many items it made; a repair is not a craft; journals count', () => {
+  const summary = analyze([
+    req(1, 55, { 1: 58, 2: 1, 4: 1290240000, 7: 8527, 9: 8 }),
+    req(2, 55, { 1: 76, 2: 2, 4: 380092800 }),
+    ev(3, 292, { 0: 17878, 1: 12055, 2: 4 })
+  ])
+  const r2 = Object.fromEntries(summary.checks.r2.map((c) => [c.label, c.pass]))
+
+  assert.equal(r2['a craft action'], true)
+  assert.equal(r2['a repair'], true)
+  assert.equal(r2['a crafting journal filled'], true)
+  assert.equal(analyze([req(1, 55, { 2: 2 })]).checks.r2.find((c) => c.label === 'a craft action').pass, false)
+})
+
+test('market replies report their return code, and say so when a recording predates it', () => {
+  const summary = analyze([
+    { at: at(1), kind: 'response', id: 315, rc: 0, payload: { 253: 315 } },
+    { at: at(2), kind: 'response', id: 79, rc: 0, payload: { 253: 79 } },
+    { at: at(3), kind: 'response', id: 79, rc: 1, payload: { 253: 79 } },
+    resp(4, 80, {})
+  ])
+  const byId = Object.fromEntries(summary.replies.map((r) => [r.id, r.codes]))
+
+  assert.deepEqual(byId[315], { 0: 1 })
+  assert.deepEqual(byId[79], { 0: 1, 1: 1 })
+  assert.deepEqual(byId[80], { 'not recorded': 1 })
+  assert.match(render(summary, { r1: false, r2: false }), /response 79 {3}AuctionCreateOffer\s+0×1 {2}1×1/)
 })

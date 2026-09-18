@@ -203,3 +203,18 @@ name is a lead, not a spec; the parameter shape is what the handlers are pinned 
 
 The file holds your guild's data — player names, ids, amounts. Read it before
 sharing it; it is gitignored on purpose.
+
+**What the two step-0 recordings changed (2026-09-16 and 2026-09-18, R1 13/13 and R2 15/15
+between them).** Four rules the checklists had wrong, because they were written from the
+reference tool's model rather than the wire:
+
+- A fish that gets away **omits** the success flag on the finish request; it never sends
+  `false`. The server's own bout state (event 355, parameter 3) says it outright: 9 landed,
+  10 escaped. Same "absent, never zero" rule the item values follow.
+- One craft action can make many items (eight scythes in one), so the check is an action,
+  not a count of two. A filled crafting journal is its own event (292) and now has a line.
+- The game answers a market sale or an order with an **empty** parameter table. Whether it
+  went through lives only in the response's return code, which the recorder threw away until
+  this change — records now carry `rc` (and `dm`, the debug message, when there is one), and
+  the analyzer prints them per market reply. Recordings made before this say "not recorded".
+- Several checklist targets can watch one code now (event 355 is both "landed" and "escaped").

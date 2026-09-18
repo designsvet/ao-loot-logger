@@ -146,17 +146,39 @@ const summarise = (parameters) => {
 };
 
 /**
+ * One record, as the line the file holds. Pure, so the shape is testable without a file.
+ *
+ * `meta` carries what a RESPONSE has beside its parameters: Photon's return code and
+ * debug message. They were dropped until 2026-09-18, and that turned out to matter —
+ * the game answers a market sale or an order with an EMPTY parameter table, so the
+ * return code is the only thing that says whether the deal went through. A recording
+ * without it cannot tell a real sale from a refused one.
+ */
+const recordLine = (kind, id, parameters, meta = {}, at = new Date().toISOString()) => {
+  const record = { at, kind, id, match: matchesHighlight(parameters), payload: plain(parameters) };
+
+  if (meta.returnCode != null) {
+    record.rc = meta.returnCode;
+  }
+
+  if (meta.debugMessage != null && meta.debugMessage !== '') {
+    record.dm = plain(meta.debugMessage);
+  }
+
+  return JSON.stringify(record);
+};
+
+/**
  * Write one packet. `kind` is event | request | response; `id` is the event code
  * (parameters[252]) or operation code (parameters[253]), whichever applies.
  */
-const write = (kind, id, parameters) => {
+const write = (kind, id, parameters, meta = {}) => {
   try {
     openFile();
 
-    const payload = plain(parameters);
     const match = matchesHighlight(parameters);
 
-    stream.write(`${JSON.stringify({ at: new Date().toISOString(), kind, id, match, payload })}\n`);
+    stream.write(`${recordLine(kind, id, parameters, meta)}\n`);
 
     // Everything is in the file; only the flagged ones are worth a line on screen,
     // otherwise the console is 3000 lines of noise and the signal is in none of them.
@@ -199,4 +221,4 @@ module.exports = { write, close, open: openFile, currentFileName, highlights };
 
 // The serializer and the matcher are the only parts with a wrong answer available,
 // so they are reachable from a test without opening a file or a socket.
-module.exports.__test = { plain, matchesHighlight };
+module.exports.__test = { plain, matchesHighlight, recordLine };

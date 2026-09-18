@@ -95,3 +95,20 @@ test('closing a dump that never opened calls back at once', () => {
   assert.equal(called, 1)
   assert.equal(PacketDump.currentFileName(), null)
 })
+
+test('a response keeps its return code and debug message; other records carry neither', () => {
+  const { PacketDump } = fresh()
+  const { recordLine } = PacketDump.__test
+  const at = '2026-09-18T14:37:22.748Z'
+
+  const reply = JSON.parse(recordLine('response', 315, { 253: 315 }, { returnCode: 0, debugMessage: '' }, at))
+  const refused = JSON.parse(recordLine('response', 79, { 253: 79 }, { returnCode: 1, debugMessage: 'not enough silver' }, at))
+  const event = JSON.parse(recordLine('event', 82, { 1: 13148746629585n, 252: 82 }, {}, at))
+
+  assert.equal(reply.rc, 0) // a zero is a real answer, not an absence
+  assert.equal('dm' in reply, false)
+  assert.equal(refused.rc, 1)
+  assert.equal(refused.dm, 'not enough silver')
+  assert.equal('rc' in event, false)
+  assert.equal(event.payload['1'], 'bigint:13148746629585')
+})
