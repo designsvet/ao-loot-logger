@@ -3,6 +3,11 @@ const fallback = require('./items-fallback')
 class Items {
   constructor() {
     this.items = {}
+    // Local patch (2026-09-18): which table the names came from. The bundled fallback is POSITIONAL
+    // and was frozen on 2026-07-21; measured on 2026-09-18 it names 12,049 of 12,071 indexes wrongly,
+    // because one insertion near the top of the game's list shifts every index after it. Readers
+    // that can re-resolve an index themselves need to know when not to trust a name.
+    this.source = 'fallback'
   }
 
   async init() {
@@ -18,6 +23,7 @@ class Items {
         data = fallback
       } else {
         data = await response.text()
+        this.source = 'live'
       }
     } catch (error) {
       console.info('Could not fetch the latest item names; using the bundled list.')

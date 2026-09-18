@@ -218,3 +218,50 @@ reference tool's model rather than the wire:
   this change — records now carry `rc` (and `dm`, the debug message, when there is one), and
   the analyzer prints them per market reply. Recordings made before this say "not recorded".
 - Several checklist targets can watch one code now (event 355 is both "landed" and "escaped").
+
+## Activity lines (phase 1 of the activity stats) — off unless `ACTIVITY_EVENTS=1`
+
+```sh
+sudo ACTIVITY_EVENTS=1 ALBION_IFACE=en0 node src/index.js
+```
+
+Beside every `loot-events-<stamp>.txt` the engine then writes `activity-events-<stamp>.jsonl`:
+one JSON object per completed thing the member did, for the capture app to upload. Every line
+carries `v` (1), `t` (the kind), `at` (epoch ms), `char` and `zone`:
+
+| `t` | written when | fields |
+| --- | --- | --- |
+| `zone` | every zone join | `items` (`live` or `fallback` — which item table named things), `fame_total` |
+| `fame` | fame gained | `gain`, `total`, `premium` |
+| `silver` | the member picks silver up | `yield`, `cluster_tax`, `guild_tax`, `alliance_tax`, `premium` |
+| `harvest` | a gather finishes | `item`, `index`, `std`, `bonus`, `premium` |
+| `fish` | a bout ends | `outcome` (`landed`/`escaped`), `rod`, `rod_index`, `catch: [{item, index, qty}]` |
+| `kill` | a mob the member hit dies | `mob` (index), `hp` |
+| `chest` | the member opens a chest | `name`, `rarity` |
+| `respec`, `might`, `faction` | as the game reports them | the game's own fields |
+
+Fame, silver and respec are **raw fixed-point integers** (value × 10,000) — neither divides evenly,
+and the reader divides. Mob and zone ids are written as sent and named downstream.
+
+Three rules, each learned from the step-0 recordings (the "why" is in `src/activity/activity.js`):
+the member is the Join's parameter 0, reissued on every zone join; silver pickups and harvests are
+broadcast for everyone nearby and are filtered to the member; nothing is deduplicated by payload.
+
+**Resends are dropped in the Photon parser now, for loot too.** The server resends a reliable
+command it did not see acknowledged; the game client drops the repeat by sequence number, and until
+this change the engine decoded it twice — a whole craft's events, health updates, pickups. The
+parser now drops a repeat by (connection, direction, channel, sequence number), never by content,
+because a genuine second event can be identical to the first. `PHOTON_DEDUPE=0` turns it off to
+compare. A new `[activity]` line every minute reports lines written and resends dropped (a separate
+line, so the capture app's `[status]` pattern never sees it).
+
+**The bundled item table is stale.** `src/items-fallback.js` (frozen 2026-07-21) names 12,049 of
+its 12,071 indexes wrongly against the 2026-09-18 game — one insertion near the top shifted every
+index after it. The engine only falls back when the startup download fails, but then every item
+name is wrong, silently. Activity lines carry the raw index beside every name and the zone line
+says which table was in use; loot lines do not yet.
+
+To cut a test fixture from a recording (the only way a recording enters the repo):
+`node tools/extract-activity-fixture.js <dump> test/fixtures/<name>.jsonl --from HH:MM --to HH:MM`.
+It keeps only what the tracker reads and replaces the member's name, every character GUID and
+hideout instance ids.

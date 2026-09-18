@@ -1,0 +1,21 @@
+{
+ "_source": "ao-data/ao-bin-dumps formatted/items.txt, fetched 2026-09-18 — the table in force when these fixtures were recorded (2026-09-16/18). Only the indexes the fixtures reference.",
+ "items": {
+  "149": "T6_FISH_FRESHWATER_ALL_COMMON",
+  "150": "T7_FISH_FRESHWATER_ALL_COMMON",
+  "151": "T8_FISH_FRESHWATER_ALL_COMMON",
+  "160": "T3_FISH_FRESHWATER_FOREST_RARE",
+  "166": "T3_FISH_FRESHWATER_HIGHLANDS_RARE",
+  "169": "T3_FISH_FRESHWATER_STEPPE_RARE",
+  "184": "T1_SEAWEED",
+  "947": "T1_WOOD",
+  "952": "T6_WOOD",
+  "1030": "T6_HIDE",
+  "1035": "T6_HIDE_LEVEL1@1",
+  "1040": "T6_HIDE_LEVEL2@2",
+  "1045": "T6_HIDE_LEVEL3@3",
+  "1057": "T6_FIBER",
+  "3018": "T6_2H_TOOL_FISHINGROD",
+  "3019": "T7_2H_TOOL_FISHINGROD"
+ }
+}
