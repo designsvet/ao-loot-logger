@@ -2,6 +2,7 @@ const MemoryStorage = require('../../storage/memory-storage')
 const uuidStringify = require('../../utils/uuid-stringify')
 const Logger = require('../../utils/logger')
 const ChestWindow = require('../../storage/chest-window')
+const AssignmentWritten = require('../../storage/assignment-written')
 const ParserError = require('../parser-error')
 
 const name = 'EvAttachItemContainer'
@@ -58,6 +59,35 @@ function handle(event) {
   // which is exactly why an ownerless pickup is dropped in the first place.
   if (container.owner) {
     ChestWindow.named(container.owner)
+  }
+
+  // Local patch: our own chest share (storage/assignment-written.js). An attach
+  // of the chest it was assigned from means that chest is still being emptied,
+  // so its entries stay matchable by type. And the first attach after an
+  // assignment of ours says whether this chest holds the objects the assignment
+  // named ours — the check behind two open questions: whether an assignment's
+  // object ids are the ones the chest and the pickups use, and what an entry
+  // beyond the chest's own objects is (2026-09-14: 14 of ours, a 10-object chest).
+  AssignmentWritten.touch(id)
+
+  const ours = AssignmentWritten.takeExpected(id)
+
+  if (ours != null) {
+    const objects = inventory.filter((objectId) => typeof objectId === 'number' && objectId > 0)
+    const held = new Set(objects)
+    const report = {
+      sourceObjectId: id,
+      source: container.owner,
+      ours: ours.length,
+      objects: objects.length,
+      missing: ours.filter((objectId) => !held.has(objectId))
+    }
+
+    if (report.missing.length > 0 || report.ours > report.objects) {
+      Logger.warn('EvAttachItemContainer: the chest does not hold every object the assignment named ours', report)
+    } else {
+      Logger.debug('EvAttachItemContainer: the chest holds every object the assignment named ours', report)
+    }
   }
 
   Logger.debug('EvAttachItemContainer', container, event.parameters)

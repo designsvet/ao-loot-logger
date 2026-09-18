@@ -17,6 +17,9 @@ class ServerRegion extends EventEmitter {
     this.currentServer = null
     this.pendingServer = null
     this.changeTimeout = null
+    // Local patch: the server of the packet being handled right now — see getPacketServer().
+    this.packetServer = null
+    this.packetSource = null
     this.knownServers = [
       {
         id: 1,
@@ -87,6 +90,14 @@ class ServerRegion extends EventEmitter {
    */
   processPacket(ipv4Info) {
     const server = this.detectFromPacket(ipv4Info)
+
+    // Local patch: recorded for EVERY packet, an unknown one included, and before the debounce
+    // below decides anything. albion-network.js parses the packet synchronously right after this
+    // returns, so for as long as its messages are being handled this names the server that sent
+    // them.
+    this.packetServer = server
+    this.packetSource = ipv4Info ? (ipv4Info.srcaddr ?? null) : null
+
     if (!server) return null
 
     // Already on this server — cancel any pending change
@@ -140,6 +151,44 @@ class ServerRegion extends EventEmitter {
   }
 
   /**
+   * Local patch: the server that sent the packet being handled right now — undebounced, and null
+   * when its address matches no known range.
+   *
+   * getCurrentServer() answers "where is this player", which is why it waits five seconds of
+   * packets before believing a switch. That is the wrong answer to "which server sent THIS
+   * message": the rotation and the guild's state arrive in the burst that follows a login, inside
+   * those five seconds, so after a switch they went out under the server the player had just
+   * left — and the bot stored them there. Europe's 2026-09-12 day ended up holding four production
+   * bonuses, two of them most likely another server's, by exactly this route.
+   *
+   * Valid only while the packet is being handled. Read it synchronously from a handler — never
+   * from a timer or a deferred flush, which would get whichever packet happened to come last.
+   * @returns {object|null}
+   */
+  getPacketServer() {
+    return this.packetServer
+  }
+
+  /**
+   * Local patch: that packet's source address, for saying WHY a message went out unlabelled.
+   * @returns {string|null}
+   */
+  getPacketSource() {
+    return this.packetSource
+  }
+
+  /**
+   * Local patch: the label a message the bot stores carries — its packet's region in lowercase
+   * ("europe"), or null. The bot refuses null; a wrong server it would store.
+   * @returns {string|null}
+   */
+  getPacketRegionToken() {
+    const server = this.packetServer
+
+    return server && typeof server.region === 'string' ? server.region.toLowerCase() : null
+  }
+
+  /**
    * Reset detector (e.g. on network restart).
    */
   reset() {
@@ -149,6 +198,8 @@ class ServerRegion extends EventEmitter {
     }
     this.currentServer = null
     this.pendingServer = null
+    this.packetServer = null
+    this.packetSource = null
   }
 }
 

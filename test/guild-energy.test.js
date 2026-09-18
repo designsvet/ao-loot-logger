@@ -326,13 +326,18 @@ const FESTIVITIES_519 = {
 
 test('the rotation is read under its new code', (t) => {
   const { EvFestivitiesUpdate } = fresh()
+  const ServerRegion = require('../src/network/server-region')
   const lines = captureInfo(t)
 
+  t.after(() => ServerRegion.reset())
+  // Recorded on Europe, so the packet that carried it came from a Europe game server.
+  ServerRegion.processPacket({ srcaddr: '193.169.238.12', dstaddr: '192.168.1.20' })
   EvFestivitiesUpdate.handle(FESTIVITIES_519)
 
   const payload = parseLine(lines[0], 'festivities')
 
   assert.equal(payload.code, 519)
+  assert.equal(payload.server, 'europe')
   assert.equal(payload.entries.length, 4)
   assert.deepEqual(
     payload.entries.map((e) => e.uniqueName),

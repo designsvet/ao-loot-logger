@@ -1,6 +1,8 @@
 const MemoryStorage = require('../../storage/memory-storage')
 const Logger = require('../../utils/logger')
 const PendingSelfLoots = require('../../pending-self-loots')
+const AssignmentWritten = require('../../storage/assignment-written')
+const OwnContainers = require('../../storage/own-containers')
 const ParserError = require('../parser-error')
 
 const name = 'OpJoin'
@@ -24,8 +26,16 @@ function handle(event) {
 
   MemoryStorage.players.self = player
 
+  // Local patch: which containers are yours — see storage/own-containers.js.
+  OwnContainers.learnFromJoin(event.parameters)
+
   // Local patch: anything looted before we knew who we were is written now.
   PendingSelfLoots.flush(player)
+
+  // Local patch: a new map numbers its objects afresh, so the chest-share ids the
+  // last map wrote (storage/assignment-written.js) mean nothing here — and one
+  // left over must not silence a real pickup that happens to reuse its number.
+  AssignmentWritten.clear()
 
   Logger.debug('OpJoin', player, event.parameters)
 }

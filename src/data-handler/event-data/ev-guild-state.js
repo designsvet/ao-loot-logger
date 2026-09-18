@@ -93,10 +93,12 @@ function read(params) {
   return { guildName, allianceTag: allianceTag ?? null, currencies }
 }
 
+/**
+ * The server of the packet that carried this state. It arrives in the login burst beside the
+ * rotation, so it raced the same five-second debounce — see ServerRegion.getPacketServer.
+ */
 function serverToken() {
-  const server = ServerRegion.getCurrentServer()
-
-  return server && typeof server.region === 'string' ? server.region.toLowerCase() : null
+  return ServerRegion.getPacketRegionToken()
 }
 
 function handle(event, nowMs = Date.now()) {

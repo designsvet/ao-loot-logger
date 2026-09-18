@@ -3,6 +3,8 @@ const LootLogger = require('../../loot-logger')
 const uuidStringify = require('../../utils/uuid-stringify')
 const Logger = require('../../utils/logger')
 const PendingSelfLoots = require('../../pending-self-loots')
+const AssignmentWritten = require('../../storage/assignment-written')
+const RecentMoves = require('../../storage/recent-moves')
 const ParserError = require('../parser-error')
 
 const name = 'OpInventoryMoveItem'
@@ -15,6 +17,10 @@ function handle(event) {
     { fromSlot, fromUuid, toSlot, toUuid },
     event.parameters
   )
+
+  // Local patch: the only packet that names where an item came FROM. Held
+  // briefly for the put that answers it — see storage/recent-moves.js.
+  RecentMoves.record(fromUuid, toUuid)
 
   if (fromUuid === toUuid) {
     return Logger.debug(
@@ -42,8 +48,22 @@ function handle(event) {
     MemoryStorage.loots.deleteById(loot.objectId)
     delete container.items[fromSlot]
 
+    // Local patch: the chest's assignment already wrote this pickup (see
+    // ev-inventory-put-item.js). Checked only on this branch, the one that
+    // writes: a move out of a CHEST writes nothing here, and consuming the id
+    // there would leave the put-item that follows free to write it again.
+    if (AssignmentWritten.consume(loot.objectId)) {
+      return Logger.debug('OpInventoryMoveItem already written by the chest assignment', loot.objectId)
+    }
+
     if (loot.owner == null) {
       return Logger.debug('OpInventoryMoveItem no owner', fromUuid)
+    }
+
+    // Local patch: the same share under another object id, matched by chest and
+    // item type inside the chest window (see ev-inventory-put-item.js).
+    if (AssignmentWritten.consumeByType(loot.owner, loot.itemId)) {
+      return Logger.debug('OpInventoryMoveItem already written by the chest assignment, by type', loot.objectId)
     }
 
     const lootedBy = MemoryStorage.players.self
