@@ -283,3 +283,31 @@ test('the log writes nothing unless it is switched on', () => {
   assert.equal(log.linesWritten, 0)
   assert.equal(log.fileName, null)
 })
+
+test('the zone line reports the item table its zone change switched to, not the one before it', () => {
+  const { fresh, joinEvent } = require('./helpers')
+  const mods = fresh()
+  const Activity = require('../src/activity')
+  const DataHandler = require('../src/data-handler/data-handler')
+  const lines = []
+
+  // The real wiring, writing to memory instead of a file.
+  Activity.log.enabled = true
+  Activity.log.write = (record) => lines.push(record)
+
+  // What a failed startup leaves (src/items.js): no table in use, one waiting for the zone change.
+  mods.Items.pending = {
+    items: { 3018: { itemNumId: 3018, itemId: 'T6_2H_TOOL_FISHINGROD', itemName: "Master's Fishing Rod" } },
+    count: 1,
+    digest: 'retried',
+    etag: null
+  }
+  mods.Items.io = { log: () => {} }
+
+  DataHandler.handleResponseData({ parameters: { ...joinEvent('Me').parameters, 0: ME, 8: '1354', 253: 2 } })
+
+  const zone = lines.find((line) => line.t === 'zone')
+
+  assert.equal(mods.Items.source, 'live', 'the zone change adopted the table')
+  assert.equal(zone?.items, 'live', 'and the zone line says so; written before the switch, it said none')
+})

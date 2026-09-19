@@ -5,6 +5,26 @@ const { red, green } = require('./utils/colors')
 const formatPlayerName = require('./utils/format-player-name')
 const ServerRegion = require('./network/server-region')
 
+/**
+ * Local patch (2026-09-18) — the folder the loot log goes to.
+ *
+ * Run by hand (`sudo node src/index.js`): beside this engine, the clone folder the README points
+ * at. The fork's '..','..' targets its packaged binary; from source it put logs one directory
+ * ABOVE the clone, where nobody looks for them.
+ *
+ * Run by Guild Butler Capture, which starts the engine on Electron's own Node
+ * (ELECTRON_RUN_AS_NODE=1) in the folder captures belong in: its per-user captures folder for the
+ * engine it bundles, the engine folder for a development layout. Beside the engine is the wrong
+ * answer there. Measured 2026-09-18 on the owner's Mac (app 0.8.2): three loot logs inside
+ * Guild Butler Capture.app/Contents/Resources/engine, `codesign --verify` naming exactly those three
+ * as "file added" to the sealed bundle, and none in the captures folder the app watches. On Windows
+ * that folder is the install dir, which an update replaces; for a Mac user without admin rights it
+ * is not writable at all. debug-logs.txt and the packet dumps already follow the working folder.
+ */
+const logDir = (env = process.env, cwd = process.cwd()) => {
+  return env.ELECTRON_RUN_AS_NODE === '1' ? cwd : path.join(__dirname, '..')
+}
+
 class LootLogger {
   constructor() {
     this.stream = null
@@ -57,9 +77,7 @@ class LootLogger {
       .map((n) => n.toString().padStart(2, '0'))
       .join('-')
 
-    // Local patch: '..','..' targets the packaged-binary layout; run from source
-    // that puts logs one directory ABOVE the clone, where nobody looks for them.
-    this.logFileName = path.join(__dirname, '..', `loot-events-${datetime}.txt`)
+    this.logFileName = path.join(logDir(), `loot-events-${datetime}.txt`)
   }
 
   write({ date, itemId, quantity, itemName, lootedBy, lootedFrom }) {
@@ -127,3 +145,4 @@ class LootLogger {
 }
 
 module.exports = new LootLogger()
+module.exports.logDir = logDir

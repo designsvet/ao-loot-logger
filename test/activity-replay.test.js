@@ -12,8 +12,8 @@ const { createActivity } = require('../src/activity/activity')
 // against what a test author believed it sends.
 //
 // Item names come from a snapshot of the table in force when they were recorded
-// (fixtures/activity-items.json), never from the engine's positional fallback, which names 12,049
-// of its 12,071 indexes wrongly today.
+// (fixtures/activity-items.json), never from the network: the table is positional and changes with
+// every patch, so a download at test time would name these indexes differently.
 
 const FIXTURES = path.join(__dirname, 'fixtures')
 const ITEMS = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'activity-items.json'), 'utf8')).items

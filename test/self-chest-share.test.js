@@ -251,6 +251,36 @@ test("a chest item that merged into our stack is not written again with the stac
   assert.equal(s.written.find((row) => row.itemId === 'T6_SOUL').quantity, 1, "our share, not the stack's 5")
 })
 
+test('a new item table renames what the next map announced before the zone change, so the type match holds', (t) => {
+  const s = session(t, { identified: false })
+  const table = s.Items.items
+
+  // What a failed startup leaves (src/items.js): nothing names items yet, and the table a
+  // background retry brought in waits for the next zone change.
+  s.Items.items = {}
+  s.Items.pending = { items: table, count: Object.keys(table).length, digest: 'retried', etag: null }
+  s.Items.io = { log: () => {} }
+
+  // The new map's own objects arrive BEFORE the Join response — measured in
+  // test-fixtures-packets.json: five EvNewSimpleItem at reliable seq 27-31, the response at 32.
+  // Our T6_SOUL stack is one of them, named by the table in use at that moment: none.
+  s.EvNewSimpleItem.handle({ parameters: { 0: 6578, 1: 2022, 2: 4, 252: 32 } })
+  assert.equal(s.MemoryStorage.loots.getById(6578).itemId, 'UNKNOWN_2022')
+
+  s.OpJoin.handle(joinEvent('Bors'))
+  assert.equal(s.MemoryStorage.loots.getById(6578).itemId, 'T6_SOUL', 'renamed by the table that took over')
+
+  replayChest(s)
+  s.clock.advance(2_000)
+
+  // 9748 (T6_SOUL x1) merges into that stack and the put-item carries the STACK's id, with no
+  // fresh announcement of it. Still named UNKNOWN_2022, it would miss the assignment's T6_SOUL
+  // and be written a second time.
+  s.EvInventoryPutItem.handle(putItemEvent(6578))
+
+  assert.equal(s.written.length, 10, 'the assignment rows stand; the merge is not an eleventh')
+})
+
 test('the type match ends with the window: a later chest of the same name is written', (t) => {
   const s = session(t)
 

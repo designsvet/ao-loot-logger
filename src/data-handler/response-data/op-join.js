@@ -2,6 +2,7 @@ const MemoryStorage = require('../../storage/memory-storage')
 const Logger = require('../../utils/logger')
 const PendingSelfLoots = require('../../pending-self-loots')
 const AssignmentWritten = require('../../storage/assignment-written')
+const Items = require('../../items')
 const OwnContainers = require('../../storage/own-containers')
 const ParserError = require('../parser-error')
 
@@ -36,6 +37,16 @@ function handle(event) {
   // last map wrote (storage/assignment-written.js) mean nothing here — and one
   // left over must not silence a real pickup that happens to reuse its number.
   AssignmentWritten.clear()
+
+  // Local patch: a newer item table takes over here, between zones, never inside
+  // one — see Items.onZoneChange in src/items.js. The new map's own objects can
+  // arrive BEFORE this response (test-fixtures-packets.json: five EvNewSimpleItem
+  // at reliable seq 27-31, this response at 32), so what is already held is
+  // renamed by the new table too, or a stack of ours named by the old one would
+  // not match a chest share named by the new one.
+  if (Items.onZoneChange()) {
+    MemoryStorage.loots.rename((itemNumId) => Items.resolve(itemNumId))
+  }
 
   Logger.debug('OpJoin', player, event.parameters)
 }

@@ -119,9 +119,10 @@ const createActivity = ({ sink, items, now = () => Date.now() }) => {
     return item != null ? item.itemId : `UNKNOWN_${num(index)}`
   }
 
-  // Every item travels with its index: a name is only as good as the table that produced it, and
-  // the engine's fallback table is positional and stale (see src/items.js). The zone line says
-  // which table was in use, so a reader can re-resolve the index instead of trusting the name.
+  // Every item travels with its index: a name is only as good as the table that produced it — and
+  // with no current table the engine names nothing, every item is UNKNOWN_<index> (src/items.js).
+  // The zone line says whether a current table named the zone (`live`) or none did (`none`), so a
+  // reader can re-resolve the index instead of trusting the name.
   const itemRef = (index) => ({ item: itemId(index), index: num(index) })
 
   const emit = (t, fields) => {
