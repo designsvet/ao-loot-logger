@@ -14,3 +14,7 @@ dist/
 guild-dump-*.jsonl
 loot-events-*.txt
 debug-logs.txt*
+
+# The last item table the server confirmed (src/items.js) — a download cache, rewritten at will.
+items-cache.json
+items-cache.json.*.tmp
