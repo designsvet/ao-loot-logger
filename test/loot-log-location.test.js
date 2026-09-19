@@ -17,6 +17,7 @@ const { execFileSync } = require('child_process')
 
 const ENGINE_ROOT = path.join(__dirname, '..')
 const LOOT_LOGGER = path.join(ENGINE_ROOT, 'src', 'loot-logger.js')
+const ITEMS = path.join(ENGINE_ROOT, 'src', 'items.js')
 
 const tmpDir = (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'loot-log-'))
@@ -87,4 +88,20 @@ test('the rule on its own', () => {
   assert.equal(logDir({}, '/data/captures'), ENGINE_ROOT)
   // Only the app's own value counts: anything else is a hand run.
   assert.equal(logDir({ ELECTRON_RUN_AS_NODE: '0' }, '/data/captures'), ENGINE_ROOT)
+})
+
+test('the item cache goes where the loot log goes', (t) => {
+  const captures = tmpDir(t)
+  const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+  const script = `
+    const Items = require(${JSON.stringify(ITEMS)})
+    const LootLogger = require(${JSON.stringify(LOOT_LOGGER)})
+    console.log(JSON.stringify([Items.defaultCacheDir(), require('path').dirname(LootLogger.logFileName)]))
+  `
+
+  const out = execFileSync(process.execPath, ['-e', script], { cwd: captures, env, encoding: 'utf8' })
+  const [cache, log] = JSON.parse(out.trim().split('\n').at(-1))
+
+  assert.equal(cache, fs.realpathSync(captures))
+  assert.equal(cache, log)
 })
