@@ -8,6 +8,29 @@ const ParserError = require('./parser-error')
 const Config = require('../config')
 const DumpWindow = require('../storage/dump-window')
 const PacketDump = require('../utils/packet-dump')
+const Activity = require('../activity')
+
+/**
+ * Local patch: the member's activity lines (src/activity). Isolated in its own catch — an activity
+ * bug may cost an activity line, never a loot line. Events are fed before the loot switch, which
+ * returns early; responses after it (in a `finally`), because the OpJoin handler is where a newer
+ * item table takes over (Items.onZoneChange) and the zone line reports which table names the zone.
+ */
+function feedActivity(kind, event) {
+  if (!Activity.log.enabled) {
+    return
+  }
+
+  try {
+    if (kind === 'event') {
+      Activity.onEvent(event)
+    } else {
+      Activity.onResponse(event)
+    }
+  } catch (error) {
+    Logger.warn('activity handler failed', error)
+  }
+}
 
 
 /**
@@ -50,6 +73,8 @@ class DataHandler {
       if (DumpWindow.shouldDump(eventId)) {
         PacketDump.write('event', eventId, event.parameters)
       }
+
+      feedActivity('event', event)
 
       // Protocol 18 fix: eventCode in header may not always be 1
       // We filter by checking if parameters[252] exists (event ID parameter)
@@ -243,6 +268,8 @@ class DataHandler {
       } else {
         Logger.error(error, event)
       }
+    } finally {
+      feedActivity('response', event)
     }
   }
 }

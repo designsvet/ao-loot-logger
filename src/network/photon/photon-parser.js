@@ -5,6 +5,7 @@ const Protocol18 = require('../protocol18/protocol18')
 const { CrcCalculator } = require('../protocol18/crc-calculator')
 const { COMMAND_TYPE, MESSAGE_TYPE } = require('./constants')
 const Logger = require('../../utils/logger')
+const { ReliableWindow } = require('./reliable-window')
 
 const PHOTON_COMMAND_HEADER_LENGTH = 12
 const PHOTON_HEADER_LENGTH = 12
@@ -17,9 +18,22 @@ class PhotonParser extends EventEmitter {
     this.debug = debug
     this.tickCount = Number.MIN_SAFE_INTEGER
     this.pendingSegments = {}
+    // Local patch: resent reliable commands are dropped by sequence number — see reliable-window.js.
+    // PHOTON_DEDUPE=0 turns it off, as a switch to compare against if a capture ever looks short.
+    this.reliable = process.env.PHOTON_DEDUPE === '0' ? null : new ReliableWindow()
   }
 
-  handlePhotonPacket(buffer) {
+  /** How many resent commands have been dropped — the heartbeat reports it. */
+  get retransmitsDropped() {
+    return this.reliable == null ? 0 : this.reliable.dropped
+  }
+
+  /**
+   * `connection` names the direction this packet travelled (`src:port>dst:port`) and `reverse` the
+   * opposite one. Both are optional: without them nothing is deduplicated, which is what the
+   * packet-fixture replays and the older callers get.
+   */
+  handlePhotonPacket(buffer, connection = null, reverse = null) {
     if (this.debug) Logger.debug('handlePhotonPacket')
 
     if (buffer.length < PHOTON_HEADER_LENGTH) {
@@ -74,6 +88,20 @@ class PhotonParser extends EventEmitter {
       commandLength -= PHOTON_COMMAND_HEADER_LENGTH
 
       if (this.debug) this.debug.push('    ')
+
+      if (this.reliable != null && connection != null) {
+        if (commandType === COMMAND_TYPE.CONNECT || commandType === COMMAND_TYPE.VERIFY_CONNECT || commandType === COMMAND_TYPE.DISCONNECT) {
+          this.reliable.reset(connection, reverse)
+        } else if (
+          (commandType === COMMAND_TYPE.SEND_RELIABLE || commandType === COMMAND_TYPE.SEND_RELIABLE_FRAGMENT) &&
+          this.reliable.isRepeat(connection, channelId, sequenceNumber)
+        ) {
+          // A resend of a command already delivered: skip its bytes, decode nothing.
+          br.position += commandLength
+          if (this.debug) this.debug.pop()
+          continue
+        }
+      }
 
       switch (commandType) {
         case COMMAND_TYPE.DISCONNECT:

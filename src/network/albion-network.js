@@ -151,7 +151,11 @@ class AlbionNetwork extends PhotonParser {
           // Detect server region from packet IP addresses
           ServerRegion.processPacket(ipv4Info)
 
-          this.handlePhotonPacket(packet)
+          // Local patch: name the direction, so resent reliable commands can be dropped by number.
+          const from = `${ipv4Info.srcaddr}:${ret.info.srcport}`
+          const to = `${ipv4Info.dstaddr}:${ret.info.dstport}`
+
+          this.handlePhotonPacket(packet, `${from}>${to}`, `${to}>${from}`)
         } catch (error) {
           Logger.warn('error parsing photon packet', error)
           Logger.warn('packet', prettyPrintBuffer(packet))
