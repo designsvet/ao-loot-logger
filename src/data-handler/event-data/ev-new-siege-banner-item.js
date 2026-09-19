@@ -8,18 +8,24 @@ const name = 'EvNewSiegeBannerItem'
 function handle(event) {
   const { objectId, itemNumId, quantity } = parse(event)
 
-  const item = Items.get(itemNumId)
-
-  if (item == null) {
+  // Not an item index at all (items are numbered from 1): dropped, as it always was.
+  if (!Number.isInteger(itemNumId) || itemNumId < 1) {
     return Logger.warn(`item num id not found`, itemNumId)
   }
 
-  const { itemId, itemName } = item
+  // Local patch: registered as UNKNOWN_<id> when the table cannot name it, like
+  // every other item (ev-new-simple-item.js), instead of being dropped.
+  const { itemId, itemName } = Items.resolve(itemNumId)
 
   let loot = MemoryStorage.loots.getById(objectId)
 
   if (loot == null) {
-    loot = MemoryStorage.loots.add({ objectId, itemId, itemName, quantity })
+    loot = MemoryStorage.loots.add({ objectId, itemNumId, itemId, itemName, quantity })
+  }
+
+  // Local patch: the index too, so a new item table can rename what is held (LootsStorage.rename).
+  if (loot.itemNumId !== itemNumId) {
+    loot.itemNumId = itemNumId
   }
 
   if (loot.itemId !== itemId) {
