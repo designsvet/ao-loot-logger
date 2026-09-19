@@ -129,16 +129,11 @@ const span = (ms) => {
 }
 
 /**
- * Where the cache lives. Run by Guild Butler Capture (ELECTRON_RUN_AS_NODE=1): the working folder,
- * which the app sets to its per-user captures folder for a bundled engine — the one place it
- * guarantees is writable — and to the engine's folder for a development layout. Run by hand:
- * beside the loot log.
+ * Where the cache lives: beside the loot log, by the log's own rule (`logDir` in loot-logger.js).
+ * That is the capture app's per-user captures folder when the app runs the engine, and the clone
+ * when it is run by hand. One rule, so the two can never end up in different folders.
  */
 const defaultCacheDir = () => {
-  if (process.env.ELECTRON_RUN_AS_NODE === '1') {
-    return process.cwd()
-  }
-
   return path.dirname(require('./loot-logger').logFileName)
 }
 
@@ -382,3 +377,4 @@ module.exports.ITEMS_URL = ITEMS_URL
 module.exports.CACHE_FILE = CACHE_FILE
 module.exports.RETRY_DELAYS_MS = RETRY_DELAYS_MS
 module.exports.RECHECK_MS = RECHECK_MS
+module.exports.defaultCacheDir = defaultCacheDir
