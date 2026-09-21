@@ -47,7 +47,7 @@ class DataHandler {
       // a packet we already handle for another reason is still a packet the guild
       // screen might be reading, and dumping only the `default` branch would hide
       // exactly those. Costs one boolean while the window is shut.
-      if (DumpWindow.shouldDump()) {
+      if (DumpWindow.shouldDump(eventId)) {
         PacketDump.write('event', eventId, event.parameters)
       }
 
@@ -182,7 +182,7 @@ class DataHandler {
     // Local patch: requests matter as much as responses here — the request is what
     // NAMES the operation you just triggered, so pressing the log button and seeing
     // one outgoing code is how the response beside it gets identified.
-    if (DumpWindow.shouldDump()) {
+    if (DumpWindow.shouldDump(eventId)) {
       PacketDump.write('request', eventId, event?.parameters ?? {})
     }
 
@@ -215,8 +215,11 @@ class DataHandler {
     // Local patch: the likeliest carrier. The screen's numbers answer a request the
     // client just made, and unhandled responses have only ever gone to `silly` —
     // console-only, so nothing about them survived the session.
-    if (DumpWindow.shouldDump()) {
-      PacketDump.write('response', eventId, event?.parameters ?? {})
+    if (DumpWindow.shouldDump(eventId)) {
+      PacketDump.write('response', eventId, event?.parameters ?? {}, {
+        returnCode: event?.returnCode,
+        debugMessage: event?.debugMessage
+      })
     }
 
     try {

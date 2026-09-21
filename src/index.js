@@ -10,6 +10,8 @@ process.on('unhandledRejection', async (reason) => {
   await new Promise((resolve) => setTimeout(resolve, 25000))
 })
 
+const path = require('path')
+
 const LootLogger = require('./loot-logger')
 
 const { green, red, cyan, orange } = require('./utils/colors')
@@ -64,6 +66,7 @@ async function main() {
 
   AlbionNetwork.init()
 
+  startSessionRecording()
 
   KeyboardInput.on('key-pressed', (key) => {
     const CTRL_C = '\u0003'
@@ -176,10 +179,55 @@ function setWindowTitle(title) {
   )
 }
 
+/**
+ * Local patch (2026-09-09): DUMP_PACKETS=session records the whole run — see
+ * src/storage/dump-window.js. Announced at start so the file name is on screen
+ * before the first packet, and flushed on the way out (below), because the last
+ * seconds of a recording are the ones the operator was watching.
+ */
+function startSessionRecording() {
+  if (!DumpWindow.isSession()) {
+    return
+  }
+
+  PacketDump.open()
+
+  console.info(
+    [
+      '',
+      `\t${green('RECORDING THE WHOLE SESSION')} → ${cyan(PacketDump.currentFileName())}`,
+      '\tEvery event, request and response until you press Ctrl-C. Read the file before sharing it.',
+      `\tAfterwards: node tools/analyze-recording.js ${path.basename(PacketDump.currentFileName())} --r1   (or --r2)`,
+      ''
+    ].join('\n')
+  )
+}
+
 function exit() {
   console.info('Exiting...')
 
-  process.exit(0)
+  if (!DumpWindow.isOpen()) {
+    return process.exit(0)
+  }
+
+  const file = PacketDump.currentFileName()
+  const count = DumpWindow.written()
+
+  DumpWindow.disarm()
+
+  // Exit only once the recording is on disk; and exit regardless after a moment,
+  // so a stuck stream can never hold the process open.
+  const leave = () => process.exit(0)
+
+  setTimeout(leave, 2000).unref()
+
+  PacketDump.close(() => {
+    if (file) {
+      console.info(`\n\t${green('RECORDING SAVED')} — ${count} packets → ${cyan(file)}\n`)
+    }
+
+    leave()
+  })
 }
 
 function rotateLogFile() {
