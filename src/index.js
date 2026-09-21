@@ -161,6 +161,15 @@ function startHeartbeat() {
     }
 
     console.info(`[status] ${parts.join(' · ')}`)
+
+    // Local patch: a SEPARATE line, so the capture app's heartbeat pattern — which reads the
+    // [status] line above — never sees these numbers. Printed only when there is something to say.
+    const Activity = require('./activity')
+    const dropped = AlbionNetwork.retransmitsDropped
+
+    if (Activity.log.enabled || dropped > 0) {
+      console.info(`[activity] lines: ${Activity.log.linesWritten} · resends dropped: ${dropped}`)
+    }
   }, 60000).unref()
 }
 
