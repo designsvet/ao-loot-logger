@@ -101,4 +101,18 @@ const shouldDump = () => {
  */
 const recentChestName = () => (Date.now() - namedAt <= WINDOW_MS ? lastChestName : null);
 
-module.exports = { touch, named, shouldDump, recentChestName, WINDOW_MS };
+/**
+ * A zone change ends attribution (2026-09-28). No chest in the map you left can be the
+ * source of anything you pick up in the next one, and "the next one" is usually where the
+ * bank is: 90 seconds is plenty to walk out of an open-world camp, zone into the hideout and
+ * start moving gear, and every ownerless put there was named after the camp chest. Measured
+ * in the same capture: across 12 joins, no chest named itself in the burst of new-map
+ * objects that arrives before the join response, so clearing here drops nothing of the new
+ * map's. Only attribution is cleared — the dump window is debugging and keeps its own clock.
+ */
+const zoneChanged = () => {
+  namedAt = 0;
+  lastChestName = null;
+};
+
+module.exports = { touch, named, shouldDump, recentChestName, zoneChanged, WINDOW_MS };
