@@ -148,6 +148,7 @@ function armPacketDump() {
 function startHeartbeat() {
   const MemoryStorage = require('./storage/memory-storage')
   const PendingSelfLoots = require('./pending-self-loots')
+  const ParseHealth = require('./storage/parse-health')
 
   setInterval(() => {
     const self = MemoryStorage.players.self
@@ -161,6 +162,11 @@ function startHeartbeat() {
     }
 
     console.info(`[status] ${parts.join(' · ')}`)
+
+    // Local patch (2026-09-28): is a game update breaking the decoder? Every minute, ok or not —
+    // see storage/parse-health.js. Its own line, like [activity] below, so the [status] pattern
+    // the capture app reads stays exactly as recorded.
+    console.info(ParseHealth.statusLine())
 
     // Local patch: a SEPARATE line, so the capture app's heartbeat pattern — which reads the
     // [status] line above — never sees these numbers. Printed only when there is something to say.

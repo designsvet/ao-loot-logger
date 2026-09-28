@@ -9,6 +9,25 @@ const Config = require('../config')
 const DumpWindow = require('../storage/dump-window')
 const PacketDump = require('../utils/packet-dump')
 const Activity = require('../activity')
+const ParseHealth = require('../storage/parse-health')
+
+/**
+ * Local patch (2026-09-28): every packet handed to a handler goes through here, so each call and
+ * each throw is counted per handler — what the heartbeat's `[health]` line is computed from (see
+ * storage/parse-health.js). Any throw counts, not only a ParserError: a field that moves or changes
+ * type can surface as either, and in normal play handlers throw nothing else (none in the
+ * 2026-09-21 or 2026-09-28 debug logs). Rethrown untouched, so the catch below logs as before.
+ */
+function run(handler, event) {
+  ParseHealth.call(handler.name)
+
+  try {
+    return handler.handle(event)
+  } catch (error) {
+    ParseHealth.failure(handler.name)
+    throw error
+  }
+}
 
 /**
  * Local patch: the member's activity lines (src/activity). Isolated in its own catch — an activity
@@ -89,66 +108,66 @@ class DataHandler {
         // logged. Code 26 and the handler's params (0 ObjectId, 1 slot, 2 guid)
         // both match the reference implementation.
         case Config.events.EvInventoryPutItem:
-          return EventData.EvInventoryPutItem.handle(event)
+          return run(EventData.EvInventoryPutItem, event)
 
         case Config.events.EvNewCharacter:
-          return EventData.EvNewCharacter.handle(event)
+          return run(EventData.EvNewCharacter, event)
 
         case Config.events.EvNewEquipmentItem:
-          return EventData.EvNewEquipmentItem.handle(event)
+          return run(EventData.EvNewEquipmentItem, event)
 
         case Config.events.EvNewSiegeBannerItem:
-          return EventData.EvNewSiegeBannerItem.handle(event)
+          return run(EventData.EvNewSiegeBannerItem, event)
 
         case Config.events.EvNewSimpleItem:
-          return EventData.EvNewSimpleItem.handle(event)
+          return run(EventData.EvNewSimpleItem, event)
 
         case Config.events.EvNewLoot:
-          return EventData.EvNewLoot.handle(event)
+          return run(EventData.EvNewLoot, event)
 
         case Config.events.EvAttachItemContainer:
-          return EventData.EvAttachItemContainer.handle(event)
+          return run(EventData.EvAttachItemContainer, event)
 
         case Config.events.EvDetachItemContainer:
-          return EventData.EvDetachItemContainer.handle(event)
+          return run(EventData.EvDetachItemContainer, event)
 
         // Local patch: the daily bonus rotation. Both candidate codes land on one handler
         // that rejects anything not shaped like FestivitiesUpdate (see the handler).
         case Config.events.EvFestivitiesUpdate:
         case Config.events.EvFestivitiesUpdateLegacy:
         case Config.events.EvFestivitiesUpdateLegacy2:
-          return EventData.EvFestivitiesUpdate.handle(event)
+          return run(EventData.EvFestivitiesUpdate, event)
 
         case Config.events.EvGuildState:
-          return EventData.EvGuildState.handle(event)
+          return run(EventData.EvGuildState, event)
 
         case Config.events.EvCharacterStats:
-          return EventData.EvCharacterStats.handle(event)
+          return run(EventData.EvCharacterStats, event)
 
         case Config.events.EvOtherGrabbedLoot:
-          return EventData.EvOtherGrabbedLoot.handle(event)
+          return run(EventData.EvOtherGrabbedLoot, event)
 
         // Local patch: chest loot. EvOtherGrabbedLoot is corpse/bag scoped and
         // never fires for a chest, so without these two a chest emptied by four
         // people logs nothing but your own pickups.
         case Config.events.EvPartyLootSettingChangedPlayer:
-          return EventData.EvPartyLootSettingChangedPlayer.handle(event)
+          return run(EventData.EvPartyLootSettingChangedPlayer, event)
 
         case Config.events.EvPartyLootItems:
-          return EventData.EvPartyLootItems.handle(event)
+          return run(EventData.EvPartyLootItems, event)
 
         case Config.events.EvPartyLootItemsRemoved:
-          return EventData.EvPartyLootItemsRemoved.handle(event)
+          return run(EventData.EvPartyLootItemsRemoved, event)
 
         // What a real chest actually sends: removal by item TYPE, nameless.
         case Config.events.EvPartyLootItemTypesRemoved:
-          return EventData.EvPartyLootItemTypesRemoved.handle(event)
+          return run(EventData.EvPartyLootItemTypesRemoved, event)
 
          case Config.events.EvNewLootChest:
-          return EventData.EvNewLootChest.handle(event)
+          return run(EventData.EvNewLootChest, event)
 
         case Config.events.EvUpdateLootChest:
-          return EventData.EvUpdateLootChest.handle(event)
+          return run(EventData.EvUpdateLootChest, event)
 
         default:
           // Local patch: `silly` goes to the console only, so unknown events were
@@ -214,12 +233,12 @@ class DataHandler {
     try {
       switch (eventId) {
         case Config.events.OpInventoryMoveItem:
-          return RequestData.OpInventoryMoveItem.handle(event)
+          return run(RequestData.OpInventoryMoveItem, event)
 
         // Both carry the guild id; only this side of the exchange does.
         case Config.events.OpGuildLogPage:
         case Config.events.OpGuildLogPageLarge:
-          return RequestData.OpGuildLogRequest.handle(event)
+          return run(RequestData.OpGuildLogRequest, event)
 
         default:
           EventData.EvFestivitiesUpdate.scan(event, 'request')
@@ -250,13 +269,13 @@ class DataHandler {
     try {
       switch (eventId) {
         case Config.events.OpJoin:
-          return ResponseData.OpJoin.handle(event)
+          return run(ResponseData.OpJoin, event)
 
         case Config.events.OpGuildEnergyDrain:
-          return ResponseData.OpGuildEnergyDrain.handle(event)
+          return run(ResponseData.OpGuildEnergyDrain, event)
 
         case Config.events.OpGuildLogPage:
-          return ResponseData.OpGuildLogPage.handle(event)
+          return run(ResponseData.OpGuildLogPage, event)
 
         default:
           EventData.EvFestivitiesUpdate.scan(event, 'response')
