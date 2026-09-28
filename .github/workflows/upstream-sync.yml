@@ -1,0 +1,58 @@
+# Upstream watch (Guild Butler, 2026-09-28).
+#
+# An Albion patch around 2026-09-23 moved a packet field. madvac shipped the fix on 2026-09-25; this
+# fork found out on 2026-09-28, from members' loot being wrong. So once a day this compares
+# madvac/ao-loot-logger@main with our `protocol18` and, when he has commits we have not reviewed,
+# opens (or refreshes) a PR whose head is his branch. It trial-merges them into `protocol18` and runs
+# our tests on the result, so the PR says whether taking his change is safe before anyone clicks.
+#
+# It never merges. This fork deliberately differs from upstream (src/items.js, the deleted bundled
+# item table, the local patches), so every upstream commit is a review decision, recorded in
+# `protocol18`'s history either way — see the PR body the script writes.
+#
+# The logic is .github/scripts/upstream-sync.sh (run it with DRY_RUN=1 to see what it would do).
+#
+# Lives on `main` because GitHub runs scheduled workflows only from the default branch. madvac's
+# own workflows were removed from `main` in the same change: once Actions is enabled on this fork,
+# they would have run too — his daily job pushes a bundled item table we deliberately deleted, and
+# his build → release pair publishes binaries.
+#
+# One-time setup in the repository settings (a fork starts with both off):
+#   1. Actions tab → "I understand my workflows, go ahead and enable them".
+#   2. Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
+name: upstream-sync
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (full history — reviewed means reachable from protocol18)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # Copied out first: the script checks out protocol18, which does not carry it.
+      - name: Compare with upstream, trial-merge, test, open or refresh the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp .github/scripts/upstream-sync.sh "$RUNNER_TEMP/upstream-sync.sh"
+          bash "$RUNNER_TEMP/upstream-sync.sh"
