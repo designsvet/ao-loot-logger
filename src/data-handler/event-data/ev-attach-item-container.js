@@ -16,18 +16,21 @@ function handle(event) {
 
   Logger.debug('EvAttachItemContainer', event.parameters)
 
-  const { id, uuid, inventory, slots } = parse(event)
+  const { id, uuid, inventory } = parse(event)
 
-  let container =
-    MemoryStorage.containers.getByUUID(uuid) ??
-    MemoryStorage.containers.getById(id)
+  let container = MemoryStorage.containers.getByUUID(uuid)
 
   if (container == null) {
-    container = MemoryStorage.containers.add({ uuid, id })
-  }
+    const registered = MemoryStorage.containers.getById(id)
 
-  if (container.uuid !== uuid) {
-    container.uuid = uuid
+    // Adopt the chest EvNewLootChest registered under this object id — but only while no
+    // other container holds it. Every tab of a bank attaches under the bank's one object
+    // id, and taking over a tab that is still open would lose it (storage/containers-storage.js).
+    // Nor does a new tab inherit the open one's name: a GUID nobody has seen is a new container.
+    container =
+      registered != null && registered.uuid == null
+        ? MemoryStorage.containers.bind(registered, uuid)
+        : MemoryStorage.containers.add({ uuid, id })
   }
 
   if (container.id !== id) {
@@ -112,11 +115,12 @@ function parse(event) {
     throw new ParserError('EvAttachItemContainer has invalid inventory parameter')
   }
 
-  const slots = event.parameters[4]
-
-  if (typeof slots !== 'number') {
-    throw new ParserError('EvAttachItemContainer has invalid slots parameter')
-  }
+  // Local patch (2026-09-28): the slot count is not read — nothing uses it. A patch around
+  // 2026-09-25 moved it from parameter 4 to 5 (madvac 4d027c3 moved the index), and while
+  // this parse still demanded it, EVERY attach threw: no container registered, so the
+  // put-item deposit guard never fired and a bank deposit made near a chest was written as
+  // loot from that chest. A field nobody reads must not be able to switch that guard off.
+  const slots = event.parameters[5] ?? event.parameters[4]
 
   const uuid = uuidStringify(encodedUuid)
 

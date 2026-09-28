@@ -25,6 +25,7 @@ const fresh = () => {
     MemoryStorage: require('../src/storage/memory-storage'),
     LootLogger: require('../src/loot-logger'),
     EvAttachItemContainer: require('../src/data-handler/event-data/ev-attach-item-container'),
+    EvDetachItemContainer: require('../src/data-handler/event-data/ev-detach-item-container'),
     EvInventoryPutItem: require('../src/data-handler/event-data/ev-inventory-put-item'),
     EvNewLootChest: require('../src/data-handler/event-data/ev-new-loot-chest'),
     EvNewSimpleItem: require('../src/data-handler/event-data/ev-new-simple-item'),
@@ -68,10 +69,21 @@ const CONTAINER_UUID = new Array(16).fill(0).map((_, i) => i + 1)
 const INVENTORY_UUID = new Array(16).fill(0).map((_, i) => 100 + i)
 const EQUIPMENT_UUID = new Array(16).fill(0).map((_, i) => 200 + i)
 
-/** EvAttachItemContainer's shape: id, uuid bytes, (skipped), inventory, slots. */
-const attachEvent = (id = 4242, inventory = []) => ({
-  parameters: { 0: id, 1: CONTAINER_UUID, 3: inventory, 4: 20 }
+/**
+ * EvAttachItemContainer's shape since the ~2026-09-25 patch: object id, GUID, a second GUID
+ * (unread), inventory, and the slot count at 5 — no parameter 4 at all. Taken from a real
+ * hideout bank tab (2026-09-28). Before the patch the count sat at 4 (`legacyAttachEvent`).
+ */
+const attachEvent = (id = 4242, inventory = [], uuid = CONTAINER_UUID) => ({
+  parameters: { 0: id, 1: uuid, 2: new Array(16).fill(9), 3: inventory, 5: 128 }
 })
+
+const legacyAttachEvent = (id = 4242, inventory = [], uuid = CONTAINER_UUID) => ({
+  parameters: { 0: id, 1: uuid, 2: new Array(16).fill(9), 3: inventory, 4: 128 }
+})
+
+/** EvDetachItemContainer's shape: the GUID alone. */
+const detachEvent = (uuid = CONTAINER_UUID) => ({ parameters: { 0: uuid } })
 
 /** EvNewLootChest's shape: object id and the chest's own name. */
 const newLootChestEvent = (id, owner) => ({ parameters: { 0: id, 3: owner } })
@@ -109,6 +121,8 @@ module.exports = {
   fresh,
   useFakeClock,
   attachEvent,
+  legacyAttachEvent,
+  detachEvent,
   newLootChestEvent,
   putItemEvent,
   joinEvent,
