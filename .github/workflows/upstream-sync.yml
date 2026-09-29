@@ -17,9 +17,9 @@
 # they would have run too — his daily job pushes a bundled item table we deliberately deleted, and
 # his build → release pair publishes binaries.
 #
-# One-time setup in the repository settings (a fork starts with both off):
-#   1. Actions tab → "I understand my workflows, go ahead and enable them".
-#   2. Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
+# One-time setup: Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to
+# create and approve pull requests". Without it the run still works up to the PR, then fails there.
+# (The workflow itself registered as active when it merged and ran first time on 2026-09-29.)
 name: upstream-sync
 
 on:
