@@ -378,6 +378,7 @@ carries `v` (1), `t` (the kind), `at` (epoch ms), `char` and `zone`:
 | `fish` | a bout ends | `outcome` (`landed`/`escaped`), `rod`, `rod_index`, `catch: [{item, index, qty}]` |
 | `kill` | a mob the member hit dies | `mob` (index), `hp` |
 | `chest` | the member opens a chest | `name`, `rarity` |
+| `journal` | books finish for the current member (event 292) | `item` (full book), `index`, `qty` (positive whole count) |
 | `respec`, `might`, `faction` | as the game reports them | the game's own fields |
 
 Fame, silver and respec are **raw fixed-point integers** (value × 10,000) — neither divides evenly,
@@ -405,3 +406,23 @@ To cut a test fixture from a recording (the only way a recording enters the repo
 `node tools/extract-activity-fixture.js <dump> test/fixtures/<name>.jsonl --from HH:MM --to HH:MM`.
 It keeps only what the tracker reads and replaces the member's name, every character GUID and
 hideout instance ids.
+
+### Journal completions (Loot Butler slice 2)
+
+Only event 292 addressed to the current Join id is counted. The September 16 recording has
+three genuine completion packets with quantities `1, 4, 1`: six full T8 crafting books. The
+item index is resolved through the current table; an unavailable name remains `UNKNOWN_<index>`.
+Missing, zero, fractional or unsafe counts are rejected rather than defaulting to one.
+
+This does not measure partial journal progress. Event 35 describes an item snapshot and also
+arrives when browsing a bank or chest; visibility does not prove whose book it is or how much
+progress the current session earned. The recordings include gathering/fishing book snapshots,
+but no completions of those kinds. Their progress and completion coverage still need live proof.
+
+`test/fixtures/journals-2026-09-16.jsonl` was cut with the allow-list extractor, then narrowed to
+the preceding Join and all six event-292 packets. The historical dump has no Photon sequence
+numbers. Its repeated block, inferred from the timing and surrounding craft events, stays in
+the fixture: replaying all six packets counts twelve books. The first three count six; two genuine
+single-book payloads are identical. The existing real-packet reliable-window tests prove the live
+sequence filter separately. A new recording is needed to prove journal resends with their original
+connection/channel/sequence metadata. The frozen item mapping and its source hash are beside it.

@@ -13,6 +13,7 @@ const MY_GUID = [5, 90, 8, 3, 248, 123, 32, 70, 172, 175, 13, 183, 75, 145, 163,
 const OTHER_GUID = [132, 61, 72, 206, 74, 62, 243, 75, 132, 255, 162, 188, 102, 13, 75, 35]
 
 const ITEMS = {
+  12055: { itemId: 'T8_JOURNAL_WARRIOR_FULL' },
   4738: { itemId: 'T5_WOOD_LEVEL2@2' },
   3018: { itemId: 'T6_2H_TOOL_FISHINGROD' },
   160: { itemId: 'T3_FISH_FRESHWATER_FOREST_RARE' },
@@ -34,6 +35,44 @@ const tracker = () => {
 
   return { lines, ev, join, activity, kinds: () => lines.map((l) => l.t) }
 }
+
+test('completed journals belong to the current member and retain identical genuine completions', () => {
+  const { lines, ev, join } = tracker()
+
+  ev(292, { 0: ME, 1: 12055, 2: 1 }) // no Join yet
+  join()
+  ev(35, { 0: 77123, 1: 12055, 2: 99, 8: 585900000 }) // visible book, ownership unknown
+  ev(292, { 0: ME, 1: 12055, 2: 1 })
+  ev(292, { 0: ME, 1: 12055, 2: 4 })
+  ev(292, { 0: ME, 1: 12055, 2: 1 }) // identical to the first, genuinely another book
+  ev(292, { 0: 55555, 1: 12055, 2: 20 })
+  join(32683, '1339')
+  ev(292, { 0: ME, 1: 12055, 2: 20 }) // old zone's id
+  ev(292, { 0: 32683, 1: 99999, 2: 2 }) // unavailable item table still keeps the index
+
+  const books = lines.filter((l) => l.t === 'journal')
+
+  assert.deepEqual(books.map((l) => l.qty), [1, 4, 1, 2])
+  assert.deepEqual({ ...books[0], at: 0 }, {
+    v: 1, t: 'journal', at: 0, char: 'Bors', zone: '1354', item: 'T8_JOURNAL_WARRIOR_FULL', index: 12055, qty: 1
+  })
+  assert.equal(books[3].zone, '1339')
+  assert.equal(books[3].item, 'UNKNOWN_99999')
+  assert.equal(books[3].index, 99999)
+})
+
+test('a malformed journal completion never defaults to one book', () => {
+  const { lines, ev, join } = tracker()
+
+  join()
+
+  for (const value of [undefined, null, '1', 0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, 9007199254740993n]) {
+    ev(292, { 0: ME, 1: 12055, 2: value })
+    ev(292, { 0: ME, 1: value, 2: 1 })
+  }
+
+  assert.equal(lines.filter((l) => l.t === 'journal').length, 0)
+})
 
 test('a join names the member, the zone, and the running fame total', () => {
   const { lines, join } = tracker()
