@@ -264,13 +264,16 @@ const createActivity = ({ sink, items, now = () => Date.now() }) => {
       }
 
       case EV.UpdateCurrency: {
+        const city = num(p[2])
         const gained = num(p[3])
 
-        if (!Number.isFinite(gained)) {
+        // UpdateCurrency is shared: id 7 is Favor, not a seventh faction city.
+        // Only the six city currencies and positive earned amounts establish faction activity.
+        if (!Number.isSafeInteger(city) || city < 1 || city > 6 || !Number.isSafeInteger(gained) || gained <= 0) {
           return
         }
 
-        emit('faction', { city: num(p[2]), gained, ...(Number.isFinite(num(p[9])) ? { total: num(p[9]) } : {}) })
+        emit('faction', { city, gained, ...(Number.isFinite(num(p[9])) ? { total: num(p[9]) } : {}) })
         return
       }
 

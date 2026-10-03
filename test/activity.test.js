@@ -280,7 +280,7 @@ test("somebody else's chest is not the member's", () => {
   assert.equal(lines.filter((l) => l.t === 'chest').length, 0)
 })
 
-test('respec, might and favour, and faction points are written as the game sends them', () => {
+test('respec and might/favour retain raw amounts; Favor currency updates do not establish faction activity', () => {
   const { lines, ev, join } = tracker()
 
   join()
@@ -295,7 +295,24 @@ test('respec, might and favour, and faction points are written as the game sends
     { might: pick('might').might, favor: pick('might').favor, might_premium: pick('might').might_premium },
     { might: 21567, favor: 5208, might_premium: 7189 }
   )
-  assert.deepEqual({ city: pick('faction').city, gained: pick('faction').gained, total: pick('faction').total }, { city: 7, gained: 5208, total: 480521792 })
+  assert.equal(pick('faction'), undefined)
+})
+
+test('faction gains require one of the six city currencies and a positive safe integer', () => {
+  const { lines, ev, join } = tracker()
+
+  join()
+  for (const city of [1, 2, 3, 4, 5, 6]) {
+    ev(85, { 0: 3, 2: city, 3: 5208, 9: 480521792 })
+  }
+  for (const city of [undefined, 0, 7, 8, -1, 1.5, '1']) {
+    ev(85, { 0: 3, 2: city, 3: 5208 })
+  }
+  for (const gained of [undefined, 0, -5208, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    ev(85, { 0: 3, 2: 4, 3: gained })
+  }
+  assert.deepEqual(lines.filter((line) => line.t === 'faction').map(({ city, gained, total }) => ({ city, gained, total })),
+    [1, 2, 3, 4, 5, 6].map((city) => ({ city, gained: 5208, total: 480521792 })))
 })
 
 test('a payload in a shape the tracker does not know is ignored, not guessed at', () => {
