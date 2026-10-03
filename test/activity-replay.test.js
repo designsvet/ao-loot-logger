@@ -136,6 +136,14 @@ test('2026-09-18: twelve bouts — eleven landed, one got away, one of them logs
   assert.ok(fish.some((l) => l.catch.some((c) => c.item === 'T1_WOOD'))) // by-catch the page counts apart
 })
 
+test('the two real recordings contain Favor currency updates, not faction-city gains', () => {
+  for (const name of ['activity-2026-09-16.jsonl', 'activity-2026-09-18.jsonl']) {
+    const { of } = replay(name)
+    assert.equal(of('faction').length, 0)
+    assert.ok(of('might').some((line) => line.favor > 0))
+  }
+})
+
 test('2026-09-18: fame reconciles exactly with the running total the joins report', () => {
   const { lines, of } = replay('activity-2026-09-18.jsonl')
   const zones = of('zone')
