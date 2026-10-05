@@ -15,6 +15,7 @@ const EvPartyLootSettingChangedPlayer = require('./ev-party-loot-setting-changed
 const EvPartyLootItems = require('./ev-party-loot-items')
 const EvPartyLootItemsRemoved = require('./ev-party-loot-items-removed')
 const EvPartyLootItemTypesRemoved = require('./ev-party-loot-item-types-removed')
+const EvPlayerTrade = require('./ev-player-trade')
 const EvUpdateLootChest = require('./ev-update-loot-chest')
 
 module.exports = {
@@ -35,5 +36,6 @@ module.exports = {
   EvPartyLootItems,
   EvPartyLootItemsRemoved,
   EvPartyLootItemTypesRemoved,
+  EvPlayerTrade,
   EvUpdateLootChest
 }

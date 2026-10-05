@@ -169,6 +169,13 @@ class DataHandler {
         case Config.events.EvUpdateLootChest:
           return run(EventData.EvUpdateLootChest, event)
 
+        // Local patch: only so a trade's hand-over is not written as chest loot.
+        case Config.events.EvPlayerTradeUpdate:
+        case Config.events.EvPlayerTradeAcceptChange:
+        case Config.events.EvPlayerTradeFinished:
+        case Config.events.EvPlayerTradeCancel:
+          return run(EventData.EvPlayerTrade, event)
+
         default:
           // Local patch: `silly` goes to the console only, so unknown events were
           // invisible to any after-the-fact analysis — which is exactly what you
@@ -234,6 +241,9 @@ class DataHandler {
       switch (eventId) {
         case Config.events.OpInventoryMoveItem:
           return run(RequestData.OpInventoryMoveItem, event)
+
+        case Config.events.OpInventorySplitStack:
+          return run(RequestData.OpInventorySplitStack, event)
 
         // Both carry the guild id; only this side of the exchange does.
         case Config.events.OpGuildLogPage:

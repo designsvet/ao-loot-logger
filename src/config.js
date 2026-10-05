@@ -56,7 +56,16 @@ const EVENTS = {
   OpGuildLogPage: 159,
   OpGuildLogPageLarge: 160,
   OpJoin: 2,
-  OpInventoryMoveItem: 30
+  OpInventoryMoveItem: 30,
+  // Local patch (2026-10-05): a split and a player trade are not loot (see ev-inventory-put-item.js).
+  // SAT ordinals at offset 0, like the anchors above. Every shape here was read off the
+  // 2026-09-16 and 2026-09-21 recordings, before the ~09-28 patch; only 176, which is not
+  // wired, has been seen on live bytes since (2026-10-04/05) and it had not moved.
+  OpInventorySplitStack: 33,
+  EvPlayerTradeCancel: 178,
+  EvPlayerTradeUpdate: 179,
+  EvPlayerTradeFinished: 180,
+  EvPlayerTradeAcceptChange: 181
 }
 
 class Config {
