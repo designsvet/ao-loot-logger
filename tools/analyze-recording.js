@@ -6,11 +6,14 @@
  *
  *   node tools/analyze-recording.js guild-dump-2026-09-10T19-02-44.jsonl --r1
  *   node tools/analyze-recording.js a.jsonl b.jsonl --r2 --code 176 --samples 3
+ *   node tools/analyze-recording.js guild-dump-2026-10-06T18-00-00.jsonl --r3
+ *   node tools/analyze-recording.js mine.jsonl --compare theirs.jsonl   # R3, both ends of each trade
  *
  * It prints: what the file holds (records, span, a code census with the reference
  * tool's names), the stat packets it looked for and the parameter shapes they came
  * in, the "whose object id is me" evidence, the market-mail timing, and a
- * pass/missing line per item of the R1 (open world) and R2 (city) checklists.
+ * pass/missing line per item of the R1 (open world), R2 (city) and R3 (player trades)
+ * checklists.
  *
  * It DECIDES nothing about the game: a name beside a code is the reference tool's
  * name for that ordinal on the current patch, and the checklists are the plan's own
@@ -81,9 +84,16 @@ const TARGETS = [
   { key: 'unreadMails', label: 'New unread mails', kind: 'event', id: 202 },
   { key: 'goldBuy', label: 'Gold market buy (response)', kind: 'response', id: 244 },
   { key: 'goldSell', label: 'Gold market sell (response)', kind: 'response', id: 245 },
-  { key: 'tradeInvite', label: 'Player trade invitation', kind: 'event', id: 176 },
+  // `redact`: the partner's name and guild are shown as their lengths only — "PA" (2) is the Ancient
+  // Lands mask, anything longer is a person, and a sample line is no place to spread one the game
+  // might hide (a `""` guild still reads as «0 chars»: the shape survives).
+  { key: 'tradeInvite', label: 'Player trade invitation', kind: 'event', id: 176, redact: ['1', '2'] },
   { key: 'tradeUpdate', label: 'Player trade update', kind: 'event', id: 179 },
   { key: 'tradeDone', label: 'Player trade finished', kind: 'event', id: 180 },
+  { key: 'tradeInviteResp', label: 'Player trade invite (response)', kind: 'response', id: 161, redact: ['1', '2'] },
+  { key: 'tradeCancel', label: 'Player trade cancelled', kind: 'event', id: 178 },
+  { key: 'tradeAcceptChange', label: 'Player trade accept change', kind: 'event', id: 181 },
+  { key: 'tradeAccept', label: 'Player trade accept (request)', kind: 'request', id: 166 },
   { key: 'character', label: 'New character', kind: 'event', id: 29 },
   { key: 'silverOthers', label: 'Other grabbed loot', kind: 'event', id: 279, qualify: { label: 'silver (param 3 true)', test: (p) => p['3'] === true } }
 ]
@@ -124,6 +134,99 @@ const R2 = [
   { label: 'a focus update', test: (c) => c.focus >= 1, why: 'craft one with focus' },
   { label: 'an equipment reveal naming its crafter', test: (c) => c.equip_q >= 1, why: 'craft a piece of gear' },
   { label: 'a player trade, updated and finished', test: (c) => c.tradeUpdate >= 1 && c.tradeDone >= 1, why: 'trade with someone' }
+]
+
+// ── R3: the player-trade verification session (raid-bot ruling of 2026-10-05, option B) ──
+//
+// What the engine's trade records (src/trades/player-trades.js) were built on, and what the
+// recordings of 2026-09-16/21 could NOT show: every finished trade there was the member GIVING,
+// every partner was a guildmate, none was in the Ancient Lands, and none came after the ~09-28 patch.
+// `detail` prints what the grade rests on, because for two of these the answer is the point.
+
+const finishedTrades = (s) => s.trades.trades.filter((t) => t.outcome === 'finished' && t.last != null)
+const inMaskedZone = (s) => s.trades.trades.filter((t) => t.invite != null && t.zone.masked)
+
+const R3 = [
+  {
+    label: 'an invitation you sent (response 161)',
+    test: (c, s) => s.trades.trades.some((t) => t.invite?.direction === 'sent'),
+    why: 'invite someone to trade'
+  },
+  {
+    label: 'an invitation you received (event 176)',
+    test: (c, s) => s.trades.trades.some((t) => t.invite?.direction === 'received'),
+    why: 'have someone invite you'
+  },
+  {
+    label: 'a finished trade where you RECEIVED items',
+    test: (c, s) => finishedTrades(s).some((t) => t.last.got > 0),
+    why: 'have the partner put an item in, both accept'
+  },
+  {
+    label: 'a finished trade where you GAVE items',
+    test: (c, s) => finishedTrades(s).some((t) => t.last.gave > 0),
+    why: 'put an item in yourself, both accept'
+  },
+  {
+    label: 'a partner with no guild',
+    test: (c, s) => s.trades.trades.some((t) => t.invite != null && t.invite.guildShape !== 'named'),
+    why: 'trade with a character in no guild (an alt works)',
+    detail: (c, s) => `guild at parameter 2: ${Object.entries(s.trades.guildShapes).map(([shape, n]) => `${shape} ×${n}`).join(', ') || 'no invitation'}`
+  },
+  {
+    label: 'a trade in the Ancient Lands',
+    test: (c, s) => inMaskedZone(s).length > 0,
+    why: 'trade with a party member inside the Ancient Lands',
+    detail: (c, s) =>
+      inMaskedZone(s)
+        .map((t) => `#${t.tradeId} in zone ${t.zone.cluster ?? '?'}: the invite ${t.invite.masked ? 'named the partner PA (masked)' : 'carried a REAL name (not masked)'}`)
+        .join('; ') || 'no trade in a zone that showed a PA character'
+  },
+  {
+    label: 'updates and a finish after the 2026-09-28 patch',
+    test: (c, s) => s.trades.postPatch.updates >= 1 && s.trades.postPatch.finishes >= 1,
+    why: 'finish any trade',
+    detail: (c, s) => `179 ×${s.trades.postPatch.updates}, 180 ×${s.trades.postPatch.finishes}, 161 response ×${s.trades.postPatch.invites} since 2026-09-28`
+  },
+  {
+    label: 'our accept = the last update, every finished trade',
+    test: (c, s) => {
+      const accepted = finishedTrades(s).filter((t) => t.accepted != null)
+
+      return accepted.length > 0 && accepted.every((t) => t.accepted === t.last.revision)
+    },
+    why: 'accept a trade yourself',
+    detail: (c, s) =>
+      finishedTrades(s)
+        .map((t) => `#${t.tradeId} ${t.accepted ?? '–'}/${t.last.revision}`)
+        .join(' ') || 'no finished trade'
+  },
+  {
+    // Graded on the events themselves, not on the received trade (item 3 already counts that): a
+    // received trade with nothing around its finish gives the phantom-pickup check nothing to read.
+    label: 'item events around a received trade',
+    test: (c, s) => finishedTrades(s).some((t) => t.around != null && t.around.put + t.around.simple + t.around.equipment > 0),
+    why: 'a received trade whose items arrive by its finish (none within 2 s: read --code 26 around it)',
+    detail: (c, s) =>
+      finishedTrades(s)
+        .filter((t) => t.around != null)
+        .map((t) => `#${t.tradeId}: InventoryPutItem ×${t.around.put}, NewSimpleItem ×${t.around.simple}, NewEquipmentItem ×${t.around.equipment} within ${AROUND_MS / 1000}s of the finish`)
+        .join('; ') || 'no received trade'
+  },
+  {
+    // Graded only with --compare (`only`): one recording cannot say what the other end saw. The trade
+    // id is reported, not graded — it is what the bot's dedup must NOT key on unless it always holds.
+    label: 'two machines agree on a trade',
+    only: (s) => s.compare != null,
+    test: (c, s) => s.compare.pairs.length > 0 && s.compare.pairs.every((p) => p.agrees),
+    why: 'both players record the session and finish a trade with each other',
+    detail: (c, s) => {
+      const { pairs, unpaired } = s.compare
+      const verdicts = pairs.map((p) => `A#${p.a.tradeId}↔B#${p.b.tradeId} ${p.agrees ? 'agree' : `disagree (${disagreements(p).join(', ')})`}`)
+
+      return `${verdicts.join('; ') || 'no pair'} · trade id equal in ${pairs.filter((p) => p.tradeIdEqual).length}/${pairs.length} (reported, not graded) · unpaired A ${unpaired.a.length}, B ${unpaired.b.length}`
+    }
+  }
 ]
 
 // ── reading the file ─────────────────────────────────────────────────────────
@@ -196,12 +299,425 @@ const compact = (payload, maxKeys = 14) => {
   return parts.join(' ')
 }
 
+/** A payload with these keys' text replaced by its length (`PA` stays: it is the mask, not a name). */
+const redact = (payload, keys) => {
+  const out = { ...(payload ?? {}) }
+
+  for (const key of keys) {
+    if (typeof out[key] === 'string' && out[key] !== 'PA') {
+      out[key] = `«${out[key].length} chars»`
+    }
+  }
+
+  return out
+}
+
 const keyProfile = (payload) =>
   Object.keys(payload ?? {})
     .filter((k) => k !== '252' && k !== '253')
     .map(Number)
     .sort((a, b) => a - b)
     .join(',')
+
+// ── player trades, reconstructed (R3) ────────────────────────────────────────
+
+/** The ~09-28 game patch that moved EvAttachItemContainer: trade codes are unconfirmed after it. */
+const PATCH_2026_09_28 = '2026-09-28T00:00:00.000Z'
+const AROUND_MS = 2000
+const ITEM_EVENTS = { 26: 'put', 30: 'equipment', 32: 'simple' }
+
+/** How an invitation carried the partner's guild: the open question for a guildless partner. */
+const guildShape = (payload) => {
+  if (!has(payload, 2)) {
+    return 'absent'
+  }
+
+  if (payload['2'] === null) {
+    return 'null'
+  }
+
+  if (payload['2'] === '') {
+    return 'empty ""'
+  }
+
+  return typeof payload['2'] === 'string' ? 'named' : `other (${typeof payload['2']})`
+}
+
+/** The engine's test (src/trades `isHiddenName`): the whole value, any case — a `PAladin` is a person. */
+const isPA = (value) => typeof value === 'string' && value.trim().toUpperCase() === 'PA'
+
+const listLength = (value) => (Array.isArray(value) ? value.length : value != null && value._array != null ? value._array : 0)
+
+/** Event 179's item columns, ours (6–16) and the partner's (17–26): src/data-handler/player-trade-wire.js. */
+const OURS = { index: '8', qty: '15', quality: '10' }
+const THEIRS = { index: '18', qty: '25', quality: '20' }
+
+/**
+ * One side of the trade window as `{ index, qty, quality }` stacks, by the wire's rule: an index of 0
+ * or less is no item, a quantity of 0 or less is one. `null` when a column is not a list (the dump's
+ * `_array` stub for one it cut short): a partial list proves nothing in a comparison.
+ */
+const sideItems = (payload, columns) => {
+  const column = (key) => (Array.isArray(payload[key]) ? payload[key] : payload[key] == null ? [] : null)
+  const indexes = column(columns.index)
+  const quantities = column(columns.qty)
+  const qualities = column(columns.quality)
+
+  if (indexes == null || quantities == null || qualities == null) {
+    return null
+  }
+
+  const out = []
+
+  indexes.forEach((value, i) => {
+    const index = num(value)
+    const qty = num(quantities[i])
+    const quality = num(qualities[i])
+
+    if (index > 0) {
+      out.push({ index, qty: qty > 0 ? qty : 1, quality: Number.isFinite(quality) ? quality : null })
+    }
+  })
+
+  return out
+}
+
+/** Not enumerable: `--json` (JSON.stringify) skips it. For the names R3 may compare but never print. */
+const unprinted = (object, key, value) => Object.defineProperty(object, key, { value })
+
+/**
+ * Every trade in the recording, as the engine's state machine would see it: the invitation (and
+ * which way), the zone (and whether it showed a `PA` player — the Ancient Lands' mask — as a
+ * character or a looter, the engine's two signals), the last update's contents, our accepted
+ * revision, and how it ended. Trade ids repeat, so a finished or cancelled id, or a second
+ * invitation under one, starts a new trade.
+ *
+ * A REAL name in a zone that masks players is the one thing R3 must not spread while it finds out
+ * whether it exists, so it is blanked HERE (`name: null`, its `nameLength` kept, the guild too) and
+ * every output inherits that: the trade list, `--json`, and `--code` through `hiddenRecords`.
+ *
+ * For `--compare`, two names travel unprinted (not enumerable): `trade.self`, the capturer's own
+ * name from the last Join's parameter 2, and `invite.rawName`, the partner's name as it came, blanked
+ * or not. `hiddenNames` holds every name blanked here, so a comparison can match on a name and still
+ * print it nowhere.
+ */
+const tradeEvidence = (records) => {
+  const open = new Map()
+  const trades = []
+  const guildShapes = {}
+  const postPatch = { updates: 0, finishes: 0, invites: 0 }
+  const invites = []
+  const hiddenNames = new Set()
+  let zone = { cluster: null, masked: false }
+  let lastMaskAt = null
+  let refused = 0
+  let self = null
+
+  const tradeFor = (tradeId) => {
+    let trade = open.get(tradeId)
+
+    if (trade == null) {
+      trade = unprinted({ tradeId, invite: null, zone, updates: 0, last: null, accepted: null, outcome: null, at: null }, 'self', self)
+      open.set(tradeId, trade)
+      trades.push(trade)
+    }
+
+    return trade
+  }
+
+  // A trade ends with the zone as it stood THEN (the engine decides "hidden" at the finish): the zone
+  // object is shared and can still turn masked later — a PA arriving just before the next join.
+  const settle = (trade) => {
+    trade.zone = { ...trade.zone }
+  }
+
+  const close = (tradeId, outcome, at) => {
+    const trade = open.get(tradeId)
+
+    if (trade != null) {
+      trade.outcome = outcome
+      trade.at = at
+      settle(trade)
+      open.delete(tradeId)
+    }
+  }
+
+  for (const record of records) {
+    const kind = record.kind
+    const id = Number(record.id)
+    const p = record.payload ?? {}
+    const late = String(record.at ?? '') >= PATCH_2026_09_28
+
+    if (kind === 'response' && id === 2) {
+      // A new zone: the game closes every trade window. Its characters arrive just BEFORE this
+      // response, so a PA in the last two seconds marks it (the engine's rule, src/trades).
+      zone = { cluster: typeof p['8'] === 'string' ? p['8'] : null, masked: lastMaskAt != null && Date.parse(record.at) - lastMaskAt <= 2000 }
+      self = typeof p['2'] === 'string' ? p['2'] : self
+      open.forEach(settle)
+      open.clear()
+    } else if ((kind === 'event' && id === 29 && isPA(p['1'])) || (kind === 'event' && id === 279 && isPA(p['2']))) {
+      zone.masked = true
+      lastMaskAt = Date.parse(record.at)
+    } else if ((kind === 'response' && id === 161) || (kind === 'event' && id === 176)) {
+      if (kind === 'response' && record.rc != null && record.rc !== 0) {
+        refused += 1
+        continue
+      }
+
+      // An invitation is always a new trade (src/trades): one still open under its id lost its end.
+      if (open.has(num(p['6']))) {
+        settle(open.get(num(p['6'])))
+        open.delete(num(p['6']))
+      }
+
+      const trade = tradeFor(num(p['6']))
+      const shape = guildShape(p)
+
+      trade.invite = unprinted(
+        { direction: kind === 'response' ? 'sent' : 'received', name: typeof p['1'] === 'string' ? p['1'] : null, guild: typeof p['2'] === 'string' ? p['2'] : null, guildShape: shape, masked: isPA(p['1']) },
+        'rawName',
+        typeof p['1'] === 'string' ? p['1'] : null
+      )
+      trade.zone = zone
+      invites.push({ record, trade })
+      guildShapes[shape] = (guildShapes[shape] ?? 0) + 1
+
+      if (late && kind === 'response') {
+        postPatch.invites += 1
+      }
+    } else if (kind === 'event' && id === 179) {
+      const trade = tradeFor(num(p['0']))
+      const revision = num(p['1'])
+
+      trade.updates += 1
+
+      if (trade.last == null || revision >= trade.last.revision) {
+        trade.last = {
+          revision,
+          gave: listLength(p['8']),
+          got: listLength(p['18']),
+          silverGave: Math.floor((num(p['2']) || 0) / 10000),
+          silverGot: Math.floor((num(p['4']) || 0) / 10000),
+          items: { gave: sideItems(p, OURS), got: sideItems(p, THEIRS) }
+        }
+      }
+
+      if (late) {
+        postPatch.updates += 1
+      }
+    } else if (kind === 'request' && id === 166) {
+      const trade = open.get(num(p['0']))
+
+      if (trade != null) {
+        trade.accepted = num(p['1'])
+      }
+    } else if (kind === 'event' && id === 178) {
+      close(num(p['0']), 'cancelled', record.at)
+    } else if (kind === 'event' && id === 180) {
+      close(num(p['0']), 'finished', record.at)
+
+      if (late) {
+        postPatch.finishes += 1
+      }
+    }
+  }
+
+  open.forEach(settle)
+
+  // After the loop, because a zone can show its mask after the invitation (a PA looter later on).
+  const hiddenRecords = new Set()
+
+  for (const { record, trade } of invites) {
+    if (trade.zone.masked && !trade.invite.masked && trade.invite.name != null) {
+      trade.invite.nameLength = trade.invite.name.length
+      hiddenNames.add(trade.invite.name)
+      trade.invite.name = null
+      trade.invite.guild = null
+      hiddenRecords.add(record)
+    }
+  }
+
+  // What arrived around a finish where we RECEIVED items: the engine's chest-window path could write
+  // such a put as a pickup (the phantom-pickup question). Counted, not judged.
+  const received = trades.filter((t) => t.outcome === 'finished' && t.last != null && t.last.got > 0)
+
+  for (const trade of received) {
+    trade.around = { put: 0, simple: 0, equipment: 0 }
+  }
+
+  if (received.length > 0) {
+    for (const record of records) {
+      const field = record.kind === 'event' ? ITEM_EVENTS[Number(record.id)] : undefined
+
+      if (field == null) {
+        continue
+      }
+
+      const ms = Date.parse(record.at)
+
+      for (const trade of received) {
+        if (Math.abs(ms - Date.parse(trade.at)) <= AROUND_MS) {
+          trade.around[field] += 1
+        }
+      }
+    }
+  }
+
+  // `hiddenRecords` is not enumerable: `--json` would print a Set as {}, and it is for codeReport.
+  return unprinted(unprinted({ trades, refused, guildShapes, postPatch }, 'hiddenRecords', hiddenRecords), 'hiddenNames', hiddenNames)
+}
+
+// ── two machines, one trade (R3 --compare) ───────────────────────────────────
+//
+// Both players record the same session, and every trade they finish with each other is in both
+// files: the mirror of a trade here is one there whose capturer is our partner and whose partner is
+// our capturer, finishing within COMPARE_WINDOW_MS of ours. Each machine stamps `at` with its own
+// clock, so the window allows for skew; of several candidates the nearest finish wins, and each
+// trade sits in one pair at most. What a pair agrees on is what the bot's dedup of a trade that both
+// members uploaded can rest on.
+
+const COMPARE_WINDOW_MS = 120000
+
+const nameKey = (name) => name.trim().toUpperCase()
+
+/**
+ * Does `partner` (one machine's invitation) name `self` (the other machine's capturer)? A `PA` partner
+ * names anyone — it is the Ancient Lands' mask, not a person — so a pair made through it is labelled.
+ */
+const namesMatch = (partner, self) => {
+  if (typeof partner !== 'string') {
+    return null
+  }
+
+  if (isPA(partner)) {
+    return 'masked'
+  }
+
+  return typeof self === 'string' && nameKey(partner) === nameKey(self) ? 'named' : null
+}
+
+const itemKey = (item) => `${item.index}×${item.qty} q${item.quality ?? '?'}`
+
+/** Two stack lists as multisets (index + quantity + quality): what only one of them holds. */
+const sameItems = (ours, theirs) => {
+  if (ours == null || theirs == null) {
+    return { equal: null, stacks: null, onlyA: [], onlyB: [] }
+  }
+
+  const balance = new Map()
+
+  for (const item of ours) {
+    balance.set(itemKey(item), (balance.get(itemKey(item)) ?? 0) + 1)
+  }
+
+  for (const item of theirs) {
+    balance.set(itemKey(item), (balance.get(itemKey(item)) ?? 0) - 1)
+  }
+
+  const onlyA = []
+  const onlyB = []
+
+  for (const [key, n] of [...balance.entries()].sort((x, y) => x[0].localeCompare(y[0]))) {
+    const into = n > 0 ? onlyA : onlyB
+
+    for (let i = 0; i < Math.abs(n); i += 1) {
+      into.push(key)
+    }
+  }
+
+  return { equal: onlyA.length === 0 && onlyB.length === 0, stacks: ours.length, onlyA, onlyB }
+}
+
+/** What a pair disagrees on, in words (empty when it agrees). The trade id is not on the list. */
+const disagreements = (p) => [
+  ...(p.revision.equal ? [] : ['final revision']),
+  ...(p.accepted.equal === false ? ['accepted revision'] : []),
+  ...(p.items.aGaveBGot.equal === true ? [] : ['A gave / B got']),
+  ...(p.items.aGotBGave.equal === true ? [] : ['A got / B gave'])
+]
+
+/**
+ * Pair the finished trades of recording A (`a`, its tradeEvidence) with recording B's. Matches on the
+ * raw names, prints none that either analysis blanked: every name in the result has passed `show`.
+ */
+const compareTrades = (a, b) => {
+  const blanked = new Set([...a.hiddenNames, ...b.hiddenNames].map(nameKey))
+  const show = (name) => (typeof name !== 'string' ? null : isPA(name) ? 'PA' : blanked.has(nameKey(name)) ? '«real name, not printed»' : name)
+  const finished = (evidence) => evidence.trades.filter((t) => t.outcome === 'finished' && t.last != null)
+  const ours = finished(a)
+  const theirs = finished(b)
+  const candidates = []
+
+  for (const x of ours) {
+    for (const y of theirs) {
+      const skew = Date.parse(y.at) - Date.parse(x.at)
+      const there = namesMatch(x.invite?.rawName, y.self)
+      const back = namesMatch(y.invite?.rawName, x.self)
+
+      if (Math.abs(skew) <= COMPARE_WINDOW_MS && there != null && back != null) {
+        candidates.push({ x, y, skew, masks: [there, back].filter((m) => m === 'masked').length })
+      }
+    }
+  }
+
+  candidates.sort((p, q) => Math.abs(p.skew) - Math.abs(q.skew))
+
+  const describe = (t) => ({ tradeId: t.tradeId, at: t.at, partner: show(t.invite?.rawName), direction: t.invite?.direction ?? null })
+  const pairedA = new Set()
+  const pairedB = new Set()
+  const pairs = []
+
+  for (const { x, y, skew, masks } of candidates) {
+    if (pairedA.has(x) || pairedB.has(y)) {
+      continue
+    }
+
+    pairedA.add(x)
+    pairedB.add(y)
+
+    const accepted = x.accepted == null || y.accepted == null ? null : x.accepted === y.accepted
+    const pair = {
+      a: describe(x),
+      b: describe(y),
+      skewSeconds: Math.round(skew / 100) / 10,
+      pairedBy: ['names', 'one name (the other partner was PA)', 'time alone (both partners were PA)'][masks],
+      tradeIdEqual: x.tradeId === y.tradeId,
+      revision: { a: x.last.revision, b: y.last.revision, equal: x.last.revision === y.last.revision },
+      accepted: { a: x.accepted, b: y.accepted, equal: accepted },
+      items: { aGaveBGot: sameItems(x.last.items.gave, y.last.items.got), aGotBGave: sameItems(x.last.items.got, y.last.items.gave) },
+      silver: {
+        aGave: x.last.silverGave,
+        aGot: x.last.silverGot,
+        bGave: y.last.silverGave,
+        bGot: y.last.silverGot,
+        mirrored: x.last.silverGave === y.last.silverGot && x.last.silverGot === y.last.silverGave
+      }
+    }
+
+    // Silver is reported beside the grade, not in it: R3's item grades revisions and both item sides.
+    pair.agrees = disagreements(pair).length === 0
+    pairs.push(pair)
+  }
+
+  pairs.sort((p, q) => String(p.a.at).localeCompare(String(q.a.at)))
+
+  const unpaired = (list, paired) =>
+    list
+      .filter((t) => !paired.has(t))
+      .map((t) => ({
+        ...describe(t),
+        reason: t.invite == null ? 'no invitation seen: the partner is unknown' : t.self == null ? 'no Join seen: whose recording is unknown' : `no mirror finishing within ${COMPARE_WINDOW_MS / 1000} s`
+      }))
+  const capturers = (evidence) => [...new Set(evidence.trades.map((t) => t.self).filter((n) => n != null))].map(show)
+
+  return {
+    windowSeconds: COMPARE_WINDOW_MS / 1000,
+    capturers: { a: capturers(a), b: capturers(b) },
+    finished: { a: ours.length, b: theirs.length },
+    pairs,
+    unpaired: { a: unpaired(ours, pairedA), b: unpaired(theirs, pairedB) }
+  }
+}
 
 // ── the analysis ─────────────────────────────────────────────────────────────
 
@@ -264,7 +780,7 @@ const analyze = (records, options = {}) => {
       }
 
       if (hit.samples.length < samplesWanted) {
-        hit.samples.push(compact(payload))
+        hit.samples.push(compact(target.redact ? redact(payload, target.redact) : payload))
       }
     }
 
@@ -340,8 +856,22 @@ const analyze = (records, options = {}) => {
     counts[`${key}_q`] = hit.qualified
   }
 
-  const state = { joins, ownId, mails: { lists: mails.lists.length, bodies: mails.bodies.length, unpromptedBodies } }
-  const checklist = (items) => items.map((item) => ({ label: item.label, pass: Boolean(item.test(counts, state)), why: item.why }))
+  const state = { joins, ownId, mails: { lists: mails.lists.length, bodies: mails.bodies.length, unpromptedBodies }, trades: tradeEvidence(records), compare: null }
+
+  // `--compare`: the other machine's recording, read for its trades alone.
+  if (options.compareRecords != null) {
+    state.compare = { file: options.compareLabel ?? 'the other recording', ...compareTrades(state.trades, tradeEvidence(options.compareRecords)) }
+  }
+
+  const checklist = (items) =>
+    items
+      .filter((item) => item.only == null || item.only(state))
+      .map((item) => ({
+      label: item.label,
+      pass: Boolean(item.test(counts, state)),
+      why: item.why,
+      ...(item.detail ? { detail: item.detail(counts, state) } : {})
+    }))
 
   return {
     records: records.length,
@@ -372,26 +902,96 @@ const analyze = (records, options = {}) => {
     ownId,
     mails: state.mails,
     replies: [...replies.entries()].map(([id, codes]) => ({ id, name: nameOf('response', id), codes: Object.fromEntries(codes) })),
-    checks: { r1: checklist(R1), r2: checklist(R2) }
+    trades: state.trades,
+    ...(state.compare != null ? { compare: state.compare } : {}),
+    checks: { r1: checklist(R1), r2: checklist(R2), r3: checklist(R3) }
   }
 }
 
-/** Every record of one code, any kind — for reading a shape the summary only counts. */
-const codeReport = (records, code, samples) =>
+/**
+ * Every record of one code, any kind — for reading a shape the summary only counts. `hidden`: the
+ * trade invitations whose real name a masked zone would have hidden (tradeEvidence), printed with
+ * name and guild as lengths.
+ */
+const codeReport = (records, code, samples, hidden = new Set()) =>
   records
     .filter((r) => Number(r.id) === code)
     .slice(0, samples)
-    .map((r) => `${r.at ?? ''} ${r.kind} ${code} ${nameOf(r.kind, code)} · ${compact(r.payload, 40)}`)
+    .map((r) => `${r.at ?? ''} ${r.kind} ${code} ${nameOf(r.kind, code)} · ${compact(hidden.has(r) ? redact(r.payload, ['1', '2']) : r.payload, 40)}`)
 
 // ── rendering ────────────────────────────────────────────────────────────────
 
 const pad = (s, n) => String(s).padEnd(n)
+
+/**
+ * One line per trade. A partner's name is printed as the game sent it — except a REAL name in a zone
+ * that masks players, which tradeEvidence has already blanked.
+ */
+const renderTrades = (evidence) => {
+  const out = []
+  const ended = (outcome) => evidence.trades.filter((t) => t.outcome === outcome).length
+  const silver = (n) => (n > 0 ? ` + ${n.toLocaleString('en-US')} silver` : '')
+
+  out.push(`Player trades — ${evidence.trades.length} (finished ${ended('finished')}, cancelled ${ended('cancelled')}, unfinished ${ended(null)}; refused invitations ${evidence.refused})`)
+
+  for (const t of evidence.trades) {
+    const name = t.invite?.masked ? 'PA' : t.invite?.nameLength != null ? '«real name, not printed»' : (t.invite?.name ?? '«no name»')
+    const guild = t.invite?.guild ? ` [${t.invite.guild}]` : t.invite?.guildShape === 'named' ? ' [guild not printed]' : ` (guild ${t.invite?.guildShape})`
+    const who = t.invite == null ? 'partner unknown (no invitation seen)' : `${t.invite.direction === 'sent' ? 'you invited' : 'invited by'} ${name}${guild}`
+    const what = t.last == null ? 'no update' : `rev ${t.last.revision}${t.accepted != null ? ` (you accepted ${t.accepted})` : ''} · gave ${t.last.gave} stack(s)${silver(t.last.silverGave)} · got ${t.last.got} stack(s)${silver(t.last.silverGot)}`
+
+    out.push(`  #${pad(t.tradeId, 6)} ${pad(t.outcome ?? 'unfinished', 10)} ${t.at ?? ''} · ${who} · zone ${t.zone.cluster ?? '?'}${t.zone.masked ? ' (masked)' : ''} · ${what}`)
+  }
+
+  return out.join('\n')
+}
+
+/** The --compare section: one block per pair, then the trades with no mirror. Names arrive printable. */
+const renderCompare = (compare) => {
+  const out = []
+  const who = (names) => names.map((n) => n ?? '?').join(', ') || 'no Join'
+  const silver = (n) => n.toLocaleString('en-US')
+  const items = (side) =>
+    side.equal === true
+      ? `same, ${side.stacks} stack(s)`
+      : side.equal == null
+        ? 'unknown (a list the dump cut short)'
+        : `DIFFER — only A: ${side.onlyA.join(', ') || '—'}; only B: ${side.onlyB.join(', ') || '—'}`
+
+  out.push(`Two machines — A: this recording (${who(compare.capturers.a)}) · B: ${compare.file} (${who(compare.capturers.b)})`)
+  out.push(`  finished trades A ${compare.finished.a}, B ${compare.finished.b} · paired ${compare.pairs.length} (finishes within ±${compare.windowSeconds} s by each machine's clock, nearest first)`)
+
+  for (const p of compare.pairs) {
+    const accepted = `${p.accepted.a ?? '–'}/${p.accepted.b ?? '–'}${p.accepted.equal === false ? ' DIFFERS' : p.accepted.equal == null ? ' (one side sent none)' : ''}`
+
+    out.push(`  A #${p.a.tradeId} ${p.a.at} ↔ B #${p.b.tradeId} ${p.b.at} · B ${p.skewSeconds >= 0 ? '+' : ''}${p.skewSeconds} s · paired by ${p.pairedBy} · ${p.agrees ? 'AGREE' : `DISAGREE (${disagreements(p).join(', ')})`}`)
+    out.push(`          A ${p.a.direction === 'sent' ? 'invited' : 'was invited by'} ${p.a.partner ?? '?'} · trade id ${p.tradeIdEqual ? 'same' : 'DIFFERS'} · final revision ${p.revision.a}/${p.revision.b}${p.revision.equal ? '' : ' DIFFERS'} · accepted ${accepted}`)
+    out.push(`          A gave = B got: ${items(p.items.aGaveBGot)} · A got = B gave: ${items(p.items.aGotBGave)}`)
+    out.push(`          silver ${p.silver.mirrored ? 'mirrored' : 'NOT mirrored'}: A gave ${silver(p.silver.aGave)} / B got ${silver(p.silver.bGot)} · A got ${silver(p.silver.aGot)} / B gave ${silver(p.silver.bGave)}`)
+  }
+
+  for (const [side, list] of [
+    ['A', compare.unpaired.a],
+    ['B', compare.unpaired.b]
+  ]) {
+    for (const t of list) {
+      out.push(`  unpaired in ${side}: #${t.tradeId} ${t.at} · partner ${t.partner ?? '?'} · ${t.reason}`)
+    }
+  }
+
+  const same = compare.pairs.filter((p) => p.tradeIdEqual).length
+
+  out.push(`  trade id equal in ${same} of ${compare.pairs.length} pair(s) — reported, not graded: the bot's dedup may key on it only if it always holds`)
+
+  return out.join('\n')
+}
 
 const render = (summary, options = {}) => {
   const out = []
   const top = options.top ?? 30
   const wantR1 = options.r1 ?? true
   const wantR2 = options.r2 ?? true
+  const wantR3 = options.r3 ?? true
 
   out.push(`Records: ${summary.records} (events ${summary.perKind.event}, requests ${summary.perKind.request}, responses ${summary.perKind.response})`)
   out.push(`Span: ${summary.span.first ?? '?'} → ${summary.span.last ?? '?'}${summary.span.seconds != null ? ` (${Math.floor(summary.span.seconds / 60)}m ${summary.span.seconds % 60}s)` : ''}`)
@@ -451,6 +1051,10 @@ const render = (summary, options = {}) => {
 
     for (const c of checks) {
       out.push(`  ${c.pass ? 'PASS   ' : 'MISSING'} ${pad(c.label, 52)} ${c.pass ? '' : `← ${c.why}`}`)
+
+      if (c.detail != null) {
+        out.push(`          ${c.detail}`)
+      }
     }
 
     const passed = checks.filter((c) => c.pass).length
@@ -466,31 +1070,55 @@ const render = (summary, options = {}) => {
     renderChecks('R2 — a city', summary.checks.r2)
   }
 
+  if (wantR3) {
+    out.push('')
+    out.push(renderTrades(summary.trades))
+
+    if (summary.compare != null) {
+      out.push('')
+      out.push(renderCompare(summary.compare))
+    }
+
+    renderChecks('R3 — player trades', summary.checks.r3)
+  }
+
   return out.join('\n')
 }
 
 // ── command line ─────────────────────────────────────────────────────────────
 
 const parseArgs = (argv) => {
-  const options = { files: [], r1: null, r2: null, top: 30, samples: 2, code: null, json: false }
+  const options = { files: [], r1: null, r2: null, r3: null, top: 30, samples: 2, code: null, json: false, compare: null }
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
 
     if (arg === '--r1') options.r1 = true
     else if (arg === '--r2') options.r2 = true
+    else if (arg === '--r3') options.r3 = true
     else if (arg === '--json') options.json = true
     else if (arg === '--top') options.top = Number(argv[++i])
     else if (arg === '--samples') options.samples = Number(argv[++i])
     else if (arg === '--code') options.code = Number(argv[++i])
+    else if (arg === '--compare') options.compare = argv[++i]
     else if (arg.startsWith('--')) throw new Error(`unknown option ${arg}`)
     else options.files.push(arg)
   }
 
-  // Asking for one checklist hides the other; asking for none shows both.
-  if (options.r1 == null && options.r2 == null) {
-    options.r1 = true
-    options.r2 = true
+  if (options.compare === undefined || String(options.compare).startsWith('--')) {
+    throw new Error('--compare needs the other machine\'s recording')
+  }
+
+  // Asking for one checklist hides the others; asking for none shows all three — or, with --compare
+  // (the R3 two-machine run), R3 alone. --compare always shows R3: that is where it prints.
+  if (options.r1 == null && options.r2 == null && options.r3 == null) {
+    options.r1 = options.compare == null
+    options.r2 = options.compare == null
+    options.r3 = true
+  }
+
+  if (options.compare != null) {
+    options.r3 = true
   }
 
   return options
@@ -500,7 +1128,7 @@ const main = () => {
   const options = parseArgs(process.argv.slice(2))
 
   if (options.files.length === 0) {
-    console.error('usage: node tools/analyze-recording.js <guild-dump-*.jsonl>… [--r1] [--r2] [--top N] [--samples N] [--code N] [--json]')
+    console.error('usage: node tools/analyze-recording.js <guild-dump-*.jsonl>… [--r1] [--r2] [--r3] [--compare <other.jsonl>] [--top N] [--samples N] [--code N] [--json]')
     process.exit(2)
   }
 
@@ -520,16 +1148,28 @@ const main = () => {
     bad += read.bad
   }
 
-  records.sort((a, b) => String(a.at ?? '').localeCompare(String(b.at ?? '')))
+  const byAt = (a, b) => String(a.at ?? '').localeCompare(String(b.at ?? ''))
 
-  const summary = analyze(records, options)
+  records.sort(byAt)
+
+  // --compare: the other player's recording of the same session, by their machine's clock.
+  let compareRecords = null
+
+  if (options.compare != null) {
+    const read = readRecords(path.resolve(options.compare))
+
+    compareRecords = read.records.sort(byAt)
+    bad += read.bad
+  }
+
+  const summary = analyze(records, { ...options, compareRecords, compareLabel: options.compare == null ? null : path.basename(options.compare) })
 
   if (options.json) {
     console.log(JSON.stringify(summary, null, 1))
     return
   }
 
-  console.log(render(summary, { top: options.top, r1: options.r1 === true, r2: options.r2 === true }))
+  console.log(render(summary, { top: options.top, r1: options.r1 === true, r2: options.r2 === true, r3: options.r3 === true }))
 
   if (bad > 0) {
     console.log(`\n(${bad} unreadable lines skipped)`)
@@ -538,7 +1178,7 @@ const main = () => {
   if (options.code != null) {
     console.log(`\nAll records with code ${options.code} (first ${options.samples * 5}):`)
 
-    for (const line of codeReport(records, options.code, options.samples * 5)) {
+    for (const line of codeReport(records, options.code, options.samples * 5, summary.trades.hiddenRecords)) {
       console.log(`  ${line}`)
     }
   }
@@ -548,4 +1188,4 @@ if (require.main === module) {
   main()
 }
 
-module.exports = { analyze, render, readRecords, parseArgs, TARGETS, R1, R2, __test: { num, has, compact, keyProfile } }
+module.exports = { analyze, render, readRecords, parseArgs, TARGETS, R1, R2, R3, __test: { num, has, compact, keyProfile, tradeEvidence, guildShape, codeReport, compareTrades, sideItems } }

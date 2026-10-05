@@ -1,0 +1,45 @@
+{
+ "_source": "ao-data/ao-bin-dumps formatted/items.txt as the engine cached it on 2026-09-21 (etag W/\"0492884f9e75eef3fe56c8ced780d754e3717f3afff4cfd5640090b86da269d7\") — the table in force when the trades were recorded (2026-09-16/21). Only the indexes the trade fixture references.",
+ "items": {
+  "570": {
+   "itemId": "T7_POTION_REVIVE",
+   "itemName": "Major Gigantify Potion"
+  },
+  "2587": {
+   "itemId": "T4_CAPEITEM_FW_LYMHURST@3",
+   "itemName": "Adept's Lymhurst Cape"
+  },
+  "3035": {
+   "itemId": "T6_MOUNT_ARMORED_HORSE",
+   "itemName": "Master's Armored Horse"
+  },
+  "9225": {
+   "itemId": "T6_MAIN_MACE@2",
+   "itemName": "Master's Mace"
+  },
+  "9233": {
+   "itemId": "T8_MAIN_MACE",
+   "itemName": "Elder's Mace"
+  },
+  "9449": {
+   "itemId": "T6_2H_KNUCKLES_SET2",
+   "itemName": "Master's Battle Bracers"
+  },
+  "9450": {
+   "itemId": "T6_2H_KNUCKLES_SET2@1",
+   "itemName": "Master's Battle Bracers"
+  },
+  "9455": {
+   "itemId": "T7_2H_KNUCKLES_SET2@1",
+   "itemName": "Grandmaster's Battle Bracers"
+  },
+  "9459": {
+   "itemId": "T8_2H_KNUCKLES_SET2",
+   "itemName": "Elder's Battle Bracers"
+  },
+  "9484": {
+   "itemId": "T8_2H_KNUCKLES_SET3",
+   "itemName": "Elder's Spiked Gauntlets"
+  }
+ }
+}

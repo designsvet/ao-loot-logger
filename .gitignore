@@ -18,3 +18,6 @@ debug-logs.txt*
 # The last item table the server confirmed (src/items.js) — a download cache, rewritten at will.
 items-cache.json
 items-cache.json.*.tmp
+
+# Player-trade records (src/trades): partner names, written when TRADE_EVENTS=1.
+trade-events-*.jsonl
