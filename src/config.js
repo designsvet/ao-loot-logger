@@ -55,6 +55,26 @@ const EVENTS = {
   // recordings and answered NEITHER time, so paging this one is the only path.
   OpGuildLogPage: 159,
   OpGuildLogPageLarge: 160,
+  // Local patch (Guild Butler, 2026-10-05): player-to-player trades (src/trades/player-trades.js).
+  // The ordinals of Triky313/AlbionOnline-StatisticsAnalysis 3c90f93 (EventCodes.cs:182-187,
+  // OperationCodes.cs:166-172), at offset 0 like every code above, and matched payload for payload
+  // against the owner's recordings of 2026-09-16 and 2026-09-21 (eight trades). Only 176 has been
+  // seen again since the ~09-28 game patch (live debug logs, 2026-10-04/05); the rest are believed,
+  // not re-read. The handlers validate shape and throw on a mismatch, so a renumbering shows in the
+  // [health] line: a drift of one either way hands the update handler a cancel's or a finish's bare
+  // {0} (no revision, broken), and the finish handler an update (refused for carrying one).
+  //   - The INVITER gets only the response to 161 (partner name at 1, guild at 2, trade id at 6);
+  //     the INVITEE gets only event 176, in the same layout. Reading events alone loses the
+  //     partner on 7 of the 8 recorded trades.
+  //   - 181 (AcceptChange) is listed for the code table only: it carries nothing the record
+  //     needs, so nothing handles it.
+  EvInvitationPlayerTrade: 176,
+  EvPlayerTradeCancel: 178,
+  EvPlayerTradeUpdate: 179,
+  EvPlayerTradeFinished: 180,
+  EvPlayerTradeAcceptChange: 181,
+  OpInviteToPlayerTrade: 161, // its RESPONSE is handled
+  OpPlayerTradeAcceptTrade: 166, // its REQUEST is handled (the revision we accepted)
   OpJoin: 2,
   OpInventoryMoveItem: 30
 }
