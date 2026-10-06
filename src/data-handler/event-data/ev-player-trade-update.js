@@ -1,4 +1,5 @@
 const Trades = require('../../trades')
+const TradeWindow = require('../../storage/trade-window')
 const { parseUpdate } = require('../player-trade-wire')
 
 const name = 'EvPlayerTradeUpdate'
@@ -8,7 +9,12 @@ const name = 'EvPlayerTradeUpdate'
  * Only the highest revision is kept — see src/trades/player-trades.js.
  */
 function handle(event) {
-  Trades.machine.updated(parse(event))
+  const update = parse(event)
+
+  Trades.machine.updated(update)
+
+  // Local patch: while it is open, what it hands us is not chest loot — see storage/trade-window.js.
+  TradeWindow.updated(update.tradeId)
 }
 
 function parse(event) {

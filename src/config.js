@@ -76,7 +76,11 @@ const EVENTS = {
   OpInviteToPlayerTrade: 161, // its RESPONSE is handled
   OpPlayerTradeAcceptTrade: 166, // its REQUEST is handled (the revision we accepted)
   OpJoin: 2,
-  OpInventoryMoveItem: 30
+  OpInventoryMoveItem: 30,
+  // Local patch (2026-10-05): a split is not loot (see ev-inventory-put-item.js). The SAT ordinal,
+  // at offset 0 like the anchors above; its shape was read off all 11 splits in the 2026-09-16 and
+  // 2026-09-21 recordings, before the ~09-28 patch, and has not been re-read since.
+  OpInventorySplitStack: 33
 }
 
 class Config {

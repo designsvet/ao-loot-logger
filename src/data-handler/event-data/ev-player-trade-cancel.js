@@ -1,4 +1,5 @@
 const Trades = require('../../trades')
+const TradeWindow = require('../../storage/trade-window')
 const { parseBareTradeId } = require('../player-trade-wire')
 
 const name = 'EvPlayerTradeCancel'
@@ -8,7 +9,10 @@ const name = 'EvPlayerTradeCancel'
  * NOTHING is written — what a partner put in the window and took back was never traded.
  */
 function handle(event) {
-  Trades.machine.cancelled(parse(event))
+  const tradeId = parse(event)
+
+  Trades.machine.cancelled(tradeId)
+  TradeWindow.ended(tradeId)
 }
 
 function parse(event) {

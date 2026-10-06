@@ -268,6 +268,18 @@ Kept in one commit so `git pull madvac main` stays easy:
    own container, is now dropped (`src/storage/own-containers.js`,
    `src/storage/recent-moves.js`). A withdrawal from a guild chest near a named
    chest is still indistinguishable from loot.
+
+   **Nor is a stack split or a player trade** (2026-10-05). Both land in your
+   own inventory with no move request, so the rule above let them through. A
+   split (request 33) is answered by a new object put into the same container:
+   the 2026-09-21 recording, replayed with a chest named 30s earlier, wrote the
+   11 potions split off a stack of 20 as a pickup from that chest. The split is
+   now paired with its put like a move. And anything put while a trade is open
+   (event 179), or within 2s of its end (180 or 178), is dropped
+   (`src/storage/trade-window.js`). No recorded trade handed us an item, so the
+   receiving side is built from the giving side, not measured. A trade whose
+   end was lost stops counting after 5 minutes without an update, or at the next
+   zone change.
 5. **Run by Guild Butler Capture, the loot log goes to the app's captures
    folder, not into the app** (2026-09-18). The app starts the engine with
    `ELECTRON_RUN_AS_NODE=1`, working in its per-user captures folder, but the

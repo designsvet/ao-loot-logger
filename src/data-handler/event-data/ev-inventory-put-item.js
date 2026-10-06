@@ -6,6 +6,7 @@ const ChestWindow = require('../../storage/chest-window')
 const AssignmentWritten = require('../../storage/assignment-written')
 const OwnContainers = require('../../storage/own-containers')
 const RecentMoves = require('../../storage/recent-moves')
+const TradeWindow = require('../../storage/trade-window')
 const uuidStringify = require('../../utils/uuid-stringify')
 const ParserError = require('../parser-error')
 
@@ -19,7 +20,7 @@ function handle(event) {
 
   // Pair this put with the request that caused it FIRST, whatever happens
   // next: a request left unpaired here could explain a later, unrelated put.
-  const from = RecentMoves.sourceOf(containerUuid)
+  const request = RecentMoves.requestFor(containerUuid)
 
   let loot = MemoryStorage.loots.getById(objectId)
 
@@ -47,7 +48,7 @@ function handle(event) {
     return Logger.debug('EvInventoryPutItem already written by the chest assignment', objectId)
   }
 
-  const notPickup = loot.owner ? null : notAPickup(containerUuid, from)
+  const notPickup = loot.owner ? null : notAPickup(containerUuid, request)
 
   if (notPickup != null) {
     MemoryStorage.loots.deleteById(objectId)
@@ -154,13 +155,32 @@ function handle(event) {
  *      an unequip, a shuffle. Measured the same day: a gear swap moved five items
  *      equipment → inventory and back, each put 60–110 ms after its request.
  *
+ * 2026-10-05, two more that neither covers, both landing in your own inventory:
+ *
+ *   3. The NEW STACK from your own split request (OpInventorySplitStack). It is a
+ *      new object put into the container you split in, answering no move
+ *      request. The 2026-09-21 recording, replayed with a chest in the window:
+ *      11 potions split off a stack of 20 were written as a pickup from it.
+ *   4. Anything put while a player TRADE is open or has just ended — what the
+ *      partner hands you arrives with no request of yours
+ *      (storage/trade-window.js). Not yet seen on the wire: no recorded trade
+ *      handed us an item.
+ *
  * Anything else — a put into your inventory from a chest, or with no request at
  * all (take-all) — falls through to the window exactly as before, so this only
- * ever removes lines, and only these two shapes. What it cannot see: a
+ * ever removes lines, and only these shapes. What it cannot see: a
  * WITHDRAWAL from a guild or bank chest, which lands in your inventory from a
  * container that looks like any other unnamed chest. That gap stays open.
  */
-const notAPickup = (containerUuid, from) => {
+const notAPickup = (containerUuid, request) => {
+  if (request?.kind === 'split') {
+    return 'split'
+  }
+
+  if (TradeWindow.isLive()) {
+    return 'trade'
+  }
+
   if (containerUuid == null) {
     return null
   }
@@ -169,7 +189,7 @@ const notAPickup = (containerUuid, from) => {
     return 'deposit'
   }
 
-  if (from != null && OwnContainers.isOwn(from)) {
+  if (request != null && OwnContainers.isOwn(request.fromUuid)) {
     return 'own-move'
   }
 
