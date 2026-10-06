@@ -42,6 +42,15 @@ You can always [buy me a coffee](https://www.buymeacoffee.com/madvac) ❤️
 3. In the project folder, run `npm install` to install dependencies.
 4. Run `npm start`.
 
+## Activity currency contract
+
+With `ACTIVITY_EVENTS=1`, faction activity requires a positive earned update for city currency
+IDs 1–6. The generic `UpdateCurrency` event also carries ID 7 (Favor); it must not be written as
+faction. Might and Favor retain their separate base, bonus and premium fields from the
+Might/Favor event. Zero gains, spending and unknown currency IDs do not establish faction
+activity. Real September 16/18 packet replays cover the Favor-only regression; positive city
+probes test the accepted contract but do not substitute for a live faction recording.
+
 ## Questions?
 
 Start a [discussion](https://github.com/matheussampaio/ao-loot-logger/discussions).

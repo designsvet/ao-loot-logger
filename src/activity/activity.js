@@ -41,6 +41,7 @@ const EV = {
   UpdateCurrency: 85,
   NewMob: 123,
   RewardGranted: 267,
+  JournalGotFull: 292,
   FishingState: 355,
   NewLootChest: 393,
   UpdateLootChest: 394,
@@ -263,13 +264,16 @@ const createActivity = ({ sink, items, now = () => Date.now() }) => {
       }
 
       case EV.UpdateCurrency: {
+        const city = num(p[2])
         const gained = num(p[3])
 
-        if (!Number.isFinite(gained)) {
+        // UpdateCurrency is shared: id 7 is Favor, not a seventh faction city.
+        // Only the six city currencies and positive earned amounts establish faction activity.
+        if (!Number.isSafeInteger(city) || city < 1 || city > 6 || !Number.isSafeInteger(gained) || gained <= 0) {
           return
         }
 
-        emit('faction', { city: num(p[2]), gained, ...(Number.isFinite(num(p[9])) ? { total: num(p[9]) } : {}) })
+        emit('faction', { city, gained, ...(Number.isFinite(num(p[9])) ? { total: num(p[9]) } : {}) })
         return
       }
 
@@ -279,6 +283,23 @@ const createActivity = ({ sink, items, now = () => Date.now() }) => {
         }
 
         emit('harvest', { ...itemRef(p[4]), std: num(p[5]) || 0, bonus: num(p[6]) || 0, premium: num(p[7]) || 0 })
+        return
+      }
+
+      case EV.JournalGotFull: {
+        const actor = num(p[0])
+        const index = num(p[1])
+        const qty = num(p[2])
+
+        // September 16: addressed to the current Join id; 1 + 4 + 1 completed books.
+        // Journal item snapshots (35) also arrive when browsing a bank/chest, so they cannot
+        // establish ownership or earned progress. Only this completion event is counted.
+        if (!isSelf(actor) || !Number.isSafeInteger(actor) || actor <= 0 ||
+            !Number.isSafeInteger(index) || index <= 0 || !Number.isSafeInteger(qty) || qty <= 0) {
+          return
+        }
+
+        emit('journal', { ...itemRef(index), qty })
         return
       }
 
