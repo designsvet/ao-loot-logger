@@ -93,6 +93,8 @@ const session = (t) => {
   mods.Logger.debug = () => {}
   mods.Logger.warn = () => {}
   mods.Logger.error = () => {}
+  // A finished trade is announced on the console too (src/trades); not this file's subject.
+  require('../src/trades').print = () => {}
   delete process.env.LOG_UNKNOWN_SOURCE
 
   return { ...mods, DataHandler, written, clock: useFakeClock(t), last: null }
@@ -277,6 +279,6 @@ test('an end for a trade that is not open excuses nothing', (t) => {
 test('an update without its item arrays opens no trade, and fails the parse', (t) => {
   const s = session(t)
 
-  assert.throws(() => s.EvPlayerTrade.handle({ parameters: { 0: TRADE, 1: 2, 252: 179 } }), /item parameters/)
+  assert.throws(() => s.EvPlayerTradeUpdate.handle({ parameters: { 0: TRADE, 1: 2, 252: 179 } }), /not an array/)
   assert.equal(s.TradeWindow.isLive(), false)
 })

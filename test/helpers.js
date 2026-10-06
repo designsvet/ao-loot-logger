@@ -36,7 +36,7 @@ const fresh = () => {
     EvPartyLootItemTypesRemoved: require('../src/data-handler/event-data/ev-party-loot-item-types-removed'),
     OpInventoryMoveItem: require('../src/data-handler/request-data/op-inventory-move-item'),
     OpInventorySplitStack: require('../src/data-handler/request-data/op-inventory-split-stack'),
-    EvPlayerTrade: require('../src/data-handler/event-data/ev-player-trade'),
+    EvPlayerTradeUpdate: require('../src/data-handler/event-data/ev-player-trade-update'),
     TradeWindow: require('../src/storage/trade-window'),
     OpJoin: require('../src/data-handler/response-data/op-join'),
     PendingSelfLoots: require('../src/pending-self-loots'),

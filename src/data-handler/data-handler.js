@@ -169,12 +169,19 @@ class DataHandler {
         case Config.events.EvUpdateLootChest:
           return run(EventData.EvUpdateLootChest, event)
 
-        // Local patch: only so a trade's hand-over is not written as chest loot.
+        // Local patch (Guild Butler, 2026-10-05): player trades — see src/trades/player-trades.js.
+        // Through run() like every handler, so a moved field shows in the [health] line.
+        case Config.events.EvInvitationPlayerTrade:
+          return run(EventData.EvInvitationPlayerTrade, event)
+
         case Config.events.EvPlayerTradeUpdate:
-        case Config.events.EvPlayerTradeAcceptChange:
-        case Config.events.EvPlayerTradeFinished:
+          return run(EventData.EvPlayerTradeUpdate, event)
+
         case Config.events.EvPlayerTradeCancel:
-          return run(EventData.EvPlayerTrade, event)
+          return run(EventData.EvPlayerTradeCancel, event)
+
+        case Config.events.EvPlayerTradeFinished:
+          return run(EventData.EvPlayerTradeFinished, event)
 
         default:
           // Local patch: `silly` goes to the console only, so unknown events were
@@ -250,6 +257,11 @@ class DataHandler {
         case Config.events.OpGuildLogPageLarge:
           return run(RequestData.OpGuildLogRequest, event)
 
+        // Local patch (Guild Butler, 2026-10-05): our accept names the revision agreed — see
+        // src/trades/player-trades.js.
+        case Config.events.OpPlayerTradeAcceptTrade:
+          return run(RequestData.OpPlayerTradeAcceptTrade, event)
+
         default:
           EventData.EvFestivitiesUpdate.scan(event, 'request')
           if (process.env.LOG_UNPROCESSED) Logger.silly('handleRequestData', event.parameters)
@@ -286,6 +298,11 @@ class DataHandler {
 
         case Config.events.OpGuildLogPage:
           return run(ResponseData.OpGuildLogPage, event)
+
+        // Local patch (Guild Butler, 2026-10-05): the answer to our trade invitation, which is where
+        // the partner's name is when WE asked — see src/trades/player-trades.js.
+        case Config.events.OpInviteToPlayerTrade:
+          return run(ResponseData.OpInviteToPlayerTrade, event)
 
         default:
           EventData.EvFestivitiesUpdate.scan(event, 'response')

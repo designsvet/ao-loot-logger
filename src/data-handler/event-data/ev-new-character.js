@@ -1,11 +1,17 @@
 const MemoryStorage = require('../../storage/memory-storage')
 const Logger = require('../../utils/logger')
 const ParserError = require('../parser-error')
+const Trades = require('../../trades')
 
 const name = 'EvNewCharacter'
 
 function handle(event) {
   const { allianceName, guildName, playerName } = parse(event)
+
+  // Local patch (Guild Butler, 2026-10-05): a character the game names `PA` marks this zone as one
+  // that hides players, so a trade here never writes the partner's name — see
+  // src/trades/player-trades.js. Reads the name only; nothing below changes.
+  Trades.machine.sawCharacter(playerName)
 
   let player = MemoryStorage.players.getByName(playerName)
 

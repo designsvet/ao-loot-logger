@@ -3,11 +3,19 @@ const LootLogger = require('../../loot-logger')
 const Items = require('../../items')
 const ParserError = require('../parser-error')
 const Logger = require('../../utils/logger')
+const Trades = require('../../trades')
 
 const name = 'EvOtherGrabbedLoot'
 
 function handle(event) {
   const { isSilver, lootedFrom, lootedBy, itemNumId, quantity } = parse(event)
+
+  // Local patch (Guild Butler, 2026-10-05): a looter the game names `PA` marks this zone as one that
+  // hides players (raid-bot ADR 0125 found the mask HERE first), so a trade in it never writes the
+  // partner's name — the second signal beside EvNewCharacter's, which [health] could not tell had
+  // gone quiet if that event were renumbered. See src/trades/player-trades.js. Reads the name only:
+  // the loot below is unchanged.
+  Trades.machine.sawCharacter(lootedBy)
 
   Logger.debug('EvOtherGrabbedLoot', {
     isSilver,

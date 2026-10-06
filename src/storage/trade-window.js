@@ -18,29 +18,23 @@
  * whether its put lands just before 180 or just after is not known. Both are covered: the trade is
  * open up to 180, and GRACE_MS after it.
  *
- * Opened by 179 alone: an invite (176) that nobody accepts never becomes a trade. An end or an
- * acceptance only counts for the trade that is open, so a renumbered code that now means something
- * else cannot open or hold this. A trade whose end was lost stops counting IDLE_MS after its last
- * event, and a zone change ends it outright.
+ * Fed by the trade decoder's own handlers (src/data-handler/event-data/ev-player-trade-*.js), after
+ * their strict parse, and kept apart from its sessions on purpose: those open on an invite too and
+ * live ten minutes, and an invite nobody answers (176) must not hide chest loot. So this opens on
+ * 179 alone, an end only counts for the trade that is open, a trade whose end was lost stops
+ * counting IDLE_MS after its last update, and a zone change ends it outright.
  */
 
 const IDLE_MS = 5 * 60_000
 const GRACE_MS = 2_000
 
-/** The open trade, `{ id, at }` with `at` its last event, or null. */
+/** The open trade, `{ id, at }` with `at` its last update, or null. */
 let open = null
 let endedAt = -Infinity
 
 /** PlayerTradeUpdate: a trade is open, or still is. */
 const updated = (tradeId) => {
   open = { id: tradeId, at: Date.now() }
-}
-
-/** PlayerTradeAcceptChange: still open — someone accepted, or an update reset the acceptance. */
-const accepted = (tradeId) => {
-  if (open != null && open.id === tradeId) {
-    open.at = Date.now()
-  }
 }
 
 /** PlayerTradeFinished or PlayerTradeCancel. */
@@ -65,4 +59,4 @@ const isLive = () => {
   return (open != null && now - open.at <= IDLE_MS) || now - endedAt <= GRACE_MS
 }
 
-module.exports = { updated, accepted, ended, zoneChanged, isLive, IDLE_MS, GRACE_MS }
+module.exports = { updated, ended, zoneChanged, isLive, IDLE_MS, GRACE_MS }
