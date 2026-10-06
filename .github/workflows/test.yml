@@ -1,0 +1,51 @@
+# Tests on every pull request into `protocol18` (Guild Butler, 2026-10-06).
+#
+# Until this file, no PR here had a single check: the only workflow GitHub registered on this fork
+# is upstream-sync.yml (on `main`, scheduled), and madvac's build.yml / release.yml /
+# check-items-and-ids.yml, which `protocol18` still carries, fire only on pushes to `main` or `dev`,
+# on `main`'s schedule, or by hand — and none of them runs `npm test`. So every fix was verified only
+# on the machine that wrote it.
+#
+# Two Node versions, because the engine runs on two: 22 is what the capture app gives it
+# (Electron 37 → Node 22, started with ELECTRON_RUN_AS_NODE=1), 24 is what madvac's packaged
+# binary uses (build.yml). `--ignore-scripts` skips building `cap`, the native capture binding:
+# no test loads it, and building it needs libpcap — the same install upstream-sync.sh uses.
+#
+# Read-only, and `pull_request` rather than `pull_request_target`: a PR's code runs with no secrets
+# and no write token, whoever opened it.
+name: test
+
+on:
+  pull_request:
+    branches: [protocol18]
+  push:
+    branches: [protocol18]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: npm test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - run: npm test
