@@ -268,6 +268,18 @@ Kept in one commit so `git pull madvac main` stays easy:
    own container, is now dropped (`src/storage/own-containers.js`,
    `src/storage/recent-moves.js`). A withdrawal from a guild chest near a named
    chest is still indistinguishable from loot.
+
+   **Nor is a stack split or a player trade** (2026-10-05). Both land in your
+   own inventory with no move request, so the rule above let them through. A
+   split (request 33) is answered by a new object put into the same container:
+   the 2026-09-21 recording, replayed with a chest named 30s earlier, wrote the
+   11 potions split off a stack of 20 as a pickup from that chest. The split is
+   now paired with its put like a move. And anything put while a trade is open
+   (event 179), or within 2s of its end (180 or 178), is dropped
+   (`src/storage/trade-window.js`). No recorded trade handed us an item, so the
+   receiving side is built from the giving side, not measured. A trade whose
+   end was lost stops counting after 5 minutes without an update, or at the next
+   zone change.
 5. **Run by Guild Butler Capture, the loot log goes to the app's captures
    folder, not into the app** (2026-09-18). The app starts the engine with
    `ELECTRON_RUN_AS_NODE=1`, working in its per-user captures folder, but the
@@ -282,6 +294,16 @@ Kept in one commit so `git pull madvac main` stays easy:
    working folder when the app runs the engine, as `debug-logs.txt` and the
    packet dumps already did. A run by hand still writes beside this clone
    (`logDir` in `src/loot-logger.js`).
+6. **An item keeps no chest from the last map** (2026-10-06). An item remembers
+   the chest it was attached in, and an object id is reused when the next map
+   numbers its objects afresh. On the 2026-09-16 recording four of a boss-lair
+   chest's object ids came back 45 minutes and 17 joins later as the member's
+   own logs and gauntlets on their island, and depositing or withdrawing them
+   there was written as four pickups from the boss-lair chest. A zone join now
+   clears every held item's chest (`LootsStorage.zoneChanged`), and so does an
+   id announced as a different item, in case a join was not decoded. Chests
+   themselves are kept: a static chest keeps its id when you come back to the
+   same map.
 
 ## Notes
 
@@ -323,6 +345,7 @@ checklists and prints the parameter shapes it found:
 ```sh
 node tools/analyze-recording.js guild-dump-2026-09-10T19-02-44.jsonl --r1
 node tools/analyze-recording.js guild-dump-2026-09-10T20-15-01.jsonl --r2
+node tools/analyze-recording.js guild-dump-2026-10-06T18-00-00.jsonl --r3   # player trades (below)
 node tools/analyze-recording.js guild-dump-*.jsonl --code 176 --samples 4   # every record of one code
 ```
 
@@ -336,6 +359,56 @@ harvest) — which is the one question a personal page cannot be built without.
 **R2 — a city, 15 minutes:** buy instantly, sell instantly, place a sell order and a
 buy order, open the mailbox and read one sold mail, craft two items (one with
 focus), repair, and do one player-to-player trade.
+
+**R3 — player trades, 20 minutes, with a second player (an alt on another account works for
+most of it).** The trade records (next-but-one section) were built on the 2026-09-16/21
+recordings, in which the member only ever GAVE, every partner was a guildmate, nothing was in the
+Ancient Lands, and nothing came after the ~09-28 patch. Record with trades on, so the run is also
+the engine's live test:
+
+```sh
+sudo TRADE_EVENTS=1 DUMP_PACKETS=session ALBION_IFACE=en0 node src/index.js
+node tools/analyze-recording.js guild-dump-<stamp>.jsonl --r3
+```
+
+Invite once and be invited once; finish one trade where you RECEIVE items and one where you GIVE
+them; trade with a character in no guild; trade with a party member inside the Ancient Lands; and
+accept every trade yourself. The analyzer lists every trade it found and grades: both invitation
+directions, received and given items, the guildless partner's guild field (absent, `null` or `""`
+— printed, because that is the open question), whether the Ancient Lands invite named the partner
+`PA` or let a real name through (that name is printed nowhere — not in the trade list, `--json`
+or `--code` — only its length; a zone counts as masked once it shows a `PA` character or looter,
+the engine's rule), updates and a finish after the
+patch, our accepted revision against the last update, and the item events (InventoryPutItem,
+NewSimpleItem, NewEquipmentItem) within two seconds of a received trade's finish — the evidence
+for whether received items can be written as phantom chest pickups (graded on finding at least
+one: a received trade with none around it answers nothing). Compare the run's
+`trade-events-<stamp>.jsonl` with what you remember doing.
+
+**Two machines.** When the second player is a real person on their own Mac, both of you record:
+each runs the engine with the same two switches, you trade with each other, and one of you reads
+both files.
+
+```sh
+sudo TRADE_EVENTS=1 DUMP_PACKETS=session ALBION_IFACE=en0 node src/index.js   # on BOTH Macs
+node tools/analyze-recording.js guild-dump-<mine>.jsonl --compare guild-dump-<theirs>.jsonl
+```
+
+(`--compare` alone shows R3 only; add `--r1`/`--r2` to see those too.) Every FINISHED trade in
+your recording is paired with its mirror in theirs: their capturer (their Join's name) is your
+partner, your capturer is theirs, and the two finishes are within 120 seconds — each machine stamps
+its own clock, so some skew is expected (it is printed); of several candidates the nearest wins. A
+partner seen as `PA` matches anyone (it is the Ancient Lands' mask), and such a pair says it was
+made on one name, or on time alone. For each pair it prints whether the trade id, the final
+revision and the accepted revision are equal, whether what you gave is what they got and the other
+way round (item index, quantity and quality, as multisets — a differing stack is named), and
+whether the silver mirrors. A finished trade with no mirror, on either side, is listed with the
+reason. The extra R3 item **two machines agree on a trade** (graded only with `--compare`) passes
+when at least one pair was found and every pair agrees on the revisions and on both item sides;
+silver is printed beside it, not graded. Trade-id equality is reported, not graded: the bot's
+dedup of a trade both members uploaded may key on the id only if it holds every time. Names follow
+the rule above — matched on what the game sent, but a name either analysis blanked is printed
+nowhere, `--json` included.
 
 Names beside codes come from `tools/photon-codes.json` — the reference tool's
 enum on the current patch. Both enums shift when the game inserts a member, so a
@@ -426,3 +499,55 @@ the fixture: replaying all six packets counts twelve books. The first three coun
 single-book payloads are identical. The existing real-packet reliable-window tests prove the live
 sequence filter separately. A new recording is needed to prove journal resends with their original
 connection/channel/sequence metadata. The frozen item mapping and its source hash are beside it.
+
+## Player trades — off unless `TRADE_EVENTS=1`
+
+```sh
+sudo TRADE_EVENTS=1 ALBION_IFACE=en0 node src/index.js
+```
+
+Beside every `loot-events-<stamp>.txt` the engine then writes `trade-events-<stamp>.jsonl`: one
+line per FINISHED player-to-player trade, for the capture app to read (raid-bot ruling of
+2026-10-05: a looter who trades loot to another member moves the debt to them). Off by default for
+the activity log's reason — a file nobody reads, here holding partner names. Every finished trade
+also prints a console line like a loot line, file or not:
+`18:14:36 UTC: {UA} [VITRYLA] Bors traded 11x Major Gigantify Potion to [VITRYLA] Guildmate.`
+
+```json
+{"v":1,"t":"trade","at":"2026-09-21T18:14:36.986Z","server":"europe","zone":"2218","tradeId":1766,
+ "initiator":"self","self":{"name":"Bors","guild":"VITRYLA","alliance":"UA"},
+ "partner":{"name":"Guildmate","guild":"VITRYLA","hidden":false},"revision":3,"acceptedRevision":3,
+ "complete":true,"gave":[{"index":570,"item":"T7_POTION_REVIVE","qty":11,"quality":1}],"got":[],
+ "silverGave":0,"silverGot":0}
+```
+
+| field | meaning |
+| --- | --- |
+| `at` | when the finish (event 180) arrived, ISO UTC |
+| `server`, `zone` | the region token of the packet that finished the trade (`europe`/`americas`/`asia`, the label every bot-bound line carries; `null` when its address matches no known range) and the zone id from the last join, or `null` |
+| `tradeId` | the game's trade id — a small per-server counter that resets and repeats: never a key on its own |
+| `initiator` | `self` (we invited: response 161), `partner` (event 176), `null` (capture started mid-trade) |
+| `self` | the joined character |
+| `partner` | name and guild from the invitation; `null` when it was not seen. `hidden: true` (name and guild `null`) when the game hides players here — the invite said `PA`, or the zone already showed a `PA` character or looter (the Ancient Lands) |
+| `revision`, `acceptedRevision` | the last update seen, and the revision our own accept named (`null`: we did not accept last, or it was lost) |
+| `complete` | the invitation was seen AND, when we accepted, the last update is the revision our accept named (any change resets the accepts in game, so a mismatch either way means a missed update or accept). `false` means the partner, or the final contents, may be missing |
+| `gave`, `got` | per stack: item `index` (enchantment included), `item` (the current table's id, else `UNKNOWN_<index>`), `qty`, `quality` |
+| `silverGave`, `silverGot` | whole silver (the wire's ×10,000, floored) |
+
+What is never written: crafter names (other players), object ids, durability, spells and passives,
+and a cancelled trade — the offer included. A silver-only trade IS written: this is the member's own
+journal; whether it leaves the machine is the app's call (the ruling's default is that it does not).
+
+The machine is `src/trades/player-trades.js` (pure, with the wire facts it rests on); the handlers
+go through the dispatcher's health accounting, so a game patch that moves a trade field shows as
+`[health] parse broken: EvPlayerTradeUpdate …` rather than as empty trades. The handler names are
+`EvInvitationPlayerTrade`, `EvPlayerTradeUpdate`, `EvPlayerTradeCancel`, `EvPlayerTradeFinished`,
+`OpInviteToPlayerTrade` and `OpPlayerTradeAcceptTrade`. They run for every member, `TRADE_EVENTS` or
+not, and none of them touches loot — so **before the capture app bundles this engine it must list
+all six in `NON_LOOT_HANDLERS`** (`src/shared/engineHealth.ts`). That list is deny-by-default: a
+handler it does not name counts as feeding loot, and a patch that broke only the trade decoder
+would then hold every member's loot uploads.
+
+To cut a trade fixture from recordings: `node tools/extract-trade-fixture.js <dump>… --out
+test/fixtures/<name>.jsonl`. It keeps every trade packet and the join before it, renames the member,
+every partner, every crafter and every guild, and refuses to write if a real name survives.

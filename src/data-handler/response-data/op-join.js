@@ -5,6 +5,8 @@ const AssignmentWritten = require('../../storage/assignment-written')
 const Items = require('../../items')
 const OwnContainers = require('../../storage/own-containers')
 const ChestWindow = require('../../storage/chest-window')
+const TradeWindow = require('../../storage/trade-window')
+const Trades = require('../../trades')
 const ParserError = require('../parser-error')
 
 const name = 'OpJoin'
@@ -42,6 +44,18 @@ function handle(event) {
   // Local patch: and no chest in the last map names a pickup in this one — see
   // ChestWindow.zoneChanged in storage/chest-window.js.
   ChestWindow.zoneChanged()
+
+  // Local patch: nor does an item announced in the last map keep that map's chest — see
+  // LootsStorage.zoneChanged in storage/loots-storage.js.
+  MemoryStorage.loots.zoneChanged()
+
+  // Local patch (Guild Butler, 2026-10-05): a zone change closes every trade window in game, and
+  // the new zone has masked nobody yet — see src/trades/player-trades.js. Parameter 8 is the
+  // zone (cluster) id the trade record carries.
+  Trades.machine.zoneChanged(typeof event.parameters[8] === 'string' ? event.parameters[8] : null)
+
+  // Local patch: and no trade from the last map excuses a put in this one — see storage/trade-window.js.
+  TradeWindow.zoneChanged()
 
   // Local patch: a newer item table takes over here, between zones, never inside
   // one — see Items.onZoneChange in src/items.js. The new map's own objects can
