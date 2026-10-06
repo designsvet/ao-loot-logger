@@ -249,6 +249,9 @@ class DataHandler {
         case Config.events.OpInventoryMoveItem:
           return run(RequestData.OpInventoryMoveItem, event)
 
+        case Config.events.OpInventorySplitStack:
+          return run(RequestData.OpInventorySplitStack, event)
+
         // Both carry the guild id; only this side of the exchange does.
         case Config.events.OpGuildLogPage:
         case Config.events.OpGuildLogPageLarge:

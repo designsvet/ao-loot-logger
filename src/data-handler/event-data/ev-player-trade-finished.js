@@ -1,4 +1,5 @@
 const Trades = require('../../trades')
+const TradeWindow = require('../../storage/trade-window')
 const { parseBareTradeId } = require('../player-trade-wire')
 
 const name = 'EvPlayerTradeFinished'
@@ -8,7 +9,11 @@ const name = 'EvPlayerTradeFinished'
  * it is written as one record (src/trades/index.js). No session, or no update ever seen, writes nothing.
  */
 function handle(event) {
-  const trade = Trades.machine.finished(parse(event))
+  const tradeId = parse(event)
+  const trade = Trades.machine.finished(tradeId)
+
+  // Local patch: the hand-over may land just after this — see storage/trade-window.js.
+  TradeWindow.ended(tradeId)
 
   if (trade != null) {
     Trades.commit(trade)
