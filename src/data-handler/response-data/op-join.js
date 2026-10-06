@@ -44,6 +44,10 @@ function handle(event) {
   // ChestWindow.zoneChanged in storage/chest-window.js.
   ChestWindow.zoneChanged()
 
+  // Local patch: nor does an item announced in the last map keep that map's chest — see
+  // LootsStorage.zoneChanged in storage/loots-storage.js.
+  MemoryStorage.loots.zoneChanged()
+
   // Local patch (Guild Butler, 2026-10-05): a zone change closes every trade window in game, and
   // the new zone has masked nobody yet — see src/trades/player-trades.js. Parameter 8 is the
   // zone (cluster) id the trade record carries.
