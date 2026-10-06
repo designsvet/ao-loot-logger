@@ -294,6 +294,16 @@ Kept in one commit so `git pull madvac main` stays easy:
    working folder when the app runs the engine, as `debug-logs.txt` and the
    packet dumps already did. A run by hand still writes beside this clone
    (`logDir` in `src/loot-logger.js`).
+6. **An item keeps no chest from the last map** (2026-10-06). An item remembers
+   the chest it was attached in, and an object id is reused when the next map
+   numbers its objects afresh. On the 2026-09-16 recording four of a boss-lair
+   chest's object ids came back 45 minutes and 17 joins later as the member's
+   own logs and gauntlets on their island, and depositing or withdrawing them
+   there was written as four pickups from the boss-lair chest. A zone join now
+   clears every held item's chest (`LootsStorage.zoneChanged`), and so does an
+   id announced as a different item, in case a join was not decoded. Chests
+   themselves are kept: a static chest keeps its id when you come back to the
+   same map.
 
 ## Notes
 

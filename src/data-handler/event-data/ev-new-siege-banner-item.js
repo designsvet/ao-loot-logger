@@ -24,7 +24,15 @@ function handle(event) {
   }
 
   // Local patch: the index too, so a new item table can rename what is held (LootsStorage.rename).
+  // And a known id announced as another item is another object, in no chest until one attaches
+  // it: the last map's chest must not name it (LootsStorage.zoneChanged), even when the join
+  // between them was not decoded. Measured on both full recordings: inside one map, an id never
+  // changed item.
   if (loot.itemNumId !== itemNumId) {
+    if (loot.itemNumId != null) {
+      loot.owner = undefined
+    }
+
     loot.itemNumId = itemNumId
   }
 
