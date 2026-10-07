@@ -327,7 +327,7 @@ new entry, and a rebase made one the list had never seen.
 
 | level | pickup behaviour of | declared from | what it adds | pinned by |
 | --- | --- | --- | --- | --- |
-| 1 | protocol18 `30124f1` | the merge of `feat/loot-rules-level` into protocol18 (sha recorded here once merged) — `30124f1` itself has no `src/loot-rules.js`, so an app built over it sends no level | a bank deposit near a chest is not chest loot (#13, `44e969d`); nor a stack split or a player trade (#19); an item keeps no chest from the last map (#21) — the 2026-09-16 island-storage gauntlets, written as boss-lair chest loot 96 s before trade 327 | `test/bank-deposit.test.js`, `test/split-and-trade.test.js`, `test/zone-change-chest-owner.test.js` |
+| 1 | protocol18 `30124f1` | `b4e242b` — the merge of `feat/loot-rules-level` (#23) into protocol18 — `30124f1` itself has no `src/loot-rules.js`, so an app built over it sends no level | a bank deposit near a chest is not chest loot (#13, `44e969d`); nor a stack split or a player trade (#19); an item keeps no chest from the last map (#21) — the 2026-09-16 island-storage gauntlets, written as boss-lair chest loot 96 s before trade 327 | `test/bank-deposit.test.js`, `test/split-and-trade.test.js`, `test/zone-change-chest-owner.test.js` |
 
 A level is declared by the commit that sets it, not by the commit whose pickups
 it describes: an engine before the file (or before a bump) sends the lower level
