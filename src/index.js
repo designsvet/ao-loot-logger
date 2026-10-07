@@ -24,13 +24,17 @@ const DumpWindow = require('./storage/dump-window')
 const PacketDump = require('./utils/packet-dump')
 
 const Config = require('./config')
+const { LOOT_RULES } = require('./loot-rules')
 
 main()
 
 async function main() {
   setWindowTitle(Config.TITLE)
 
+  // Local patch (2026-10-06): the loot-rules level (src/loot-rules.js), for a person reading the
+  // window. The capture app does not parse this line — it reads the level its build stamped.
   console.info(`${Config.TITLE}
+Loot rules: level ${LOOT_RULES}
 `)
 
   await Promise.all([checkNewVersion(), Items.init()])

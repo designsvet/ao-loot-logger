@@ -304,6 +304,41 @@ Kept in one commit so `git pull madvac main` stays easy:
    id announced as a different item, in case a join was not decoded. Chests
    themselves are kept: a static chest keeps its id when you come back to the
    same map.
+7. **The engine says which loot rules it runs** (2026-10-06): the loot-rules
+   level, next section.
+
+## The loot-rules level
+
+`src/loot-rules.js` holds one integer, `LOOT_RULES`, printed on the banner's
+second line (`Loot rules: level 1`). It goes up by one with every engine change
+that alters **which pickups are written** — a line written that was not loot, or
+loot that was not written — and with nothing else: not item names, not the shape
+of a loot line, not trades, activity, `[status]` or `[health]`, not a decoder fix
+that changes no pickup. It never goes down.
+
+Who reads it: Guild Butler Capture's build loads the file out of the engine
+checkout (`tools/prepare-engine-dist.mjs`) and stamps the number beside the
+bundle as `ENGINE_LOOT_RULES`; the app sends it as `X-Capture-Loot-Rules` with
+every upload, and raid-bot counts a run's pickups toward a trade (ADR 0168,
+slice B) only when its level is at least the bot's minimum. A run with no level
+counts as none. This replaced a list of engine commits kept by hand in raid-bot:
+a commit has no order, so every engine commit, loot-relevant or not, needed a
+new entry, and a rebase made one the list had never seen.
+
+| level | pickup behaviour of | declared from | what it adds | pinned by |
+| --- | --- | --- | --- | --- |
+| 1 | protocol18 `30124f1` | the merge of `feat/loot-rules-level` into protocol18 (sha recorded here once merged) — `30124f1` itself has no `src/loot-rules.js`, so an app built over it sends no level | a bank deposit near a chest is not chest loot (#13, `44e969d`); nor a stack split or a player trade (#19); an item keeps no chest from the last map (#21) — the 2026-09-16 island-storage gauntlets, written as boss-lair chest loot 96 s before trade 327 | `test/bank-deposit.test.js`, `test/split-and-trade.test.js`, `test/zone-change-chest-owner.test.js` |
+
+A level is declared by the commit that sets it, not by the commit whose pickups
+it describes: an engine before the file (or before a bump) sends the lower level
+or none, and the bot counts accordingly.
+
+Bumping it: raise the number in `src/loot-rules.js`, add the level's row here and
+its pinning tests to `test/loot-rules.test.js` (which fails until both exist), in
+the same PR as the fix. A patch the capture app applies on top of this engine
+(its `resources/engine-patches/`) that changes which pickups are written bumps
+it as well. Keep the file a bare value with no `require`: a build script loads
+it.
 
 ## Notes
 
