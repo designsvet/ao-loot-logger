@@ -4,6 +4,7 @@ const fs = require('fs')
 const path = require('path')
 
 const { createActivity } = require('../src/activity/activity')
+const { octoberActivityFixture } = require('./legacy-activity-fixture')
 
 // Two real recordings from the owner's Mac, cut down and scrubbed by
 // tools/extract-activity-fixture.js (name → "Me", character GUIDs and hideout ids faked, only the
@@ -51,7 +52,7 @@ const replay = (name) => {
     const parameters = revive(record.payload)
 
     if (record.kind === 'event') {
-      activity.onEvent({ parameters })
+      activity.onEvent({ parameters: octoberActivityFixture(parameters) })
     } else {
       activity.onResponse({ parameters })
     }

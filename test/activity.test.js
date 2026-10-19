@@ -124,14 +124,14 @@ test('a landed fish writes one line with everything the reward events named', ()
   const { lines, ev, join } = tracker()
 
   join(32953, '1354')
-  ev(355, { 0: 32953, 1: 32966, 2: 3018, 3: 3 })
-  ev(355, { 0: 32953, 1: 32966, 2: 3018, 3: 4 })
-  ev(355, { 0: 32953, 1: 32966, 2: 3018, 3: 5 })
-  ev(355, { 0: 32953, 1: 32966, 2: 3018, 3: 7 })
-  ev(355, { 0: 32953, 1: 32966, 2: 3018, 3: 8 })
-  ev(267, { 1: 160, 3: 2 })
-  ev(267, { 1: 184, 3: 2 })
-  ev(355, { 0: 32953, 1: 32966, 2: 3018, 3: 9 })
+  ev(354, { 0: 32953, 1: 32966, 2: 3018, 3: 3 })
+  ev(354, { 0: 32953, 1: 32966, 2: 3018, 3: 4 })
+  ev(354, { 0: 32953, 1: 32966, 2: 3018, 3: 5 })
+  ev(354, { 0: 32953, 1: 32966, 2: 3018, 3: 7 })
+  ev(354, { 0: 32953, 1: 32966, 2: 3018, 3: 8 })
+  ev(266, { 1: 160, 3: 2 })
+  ev(266, { 1: 184, 3: 2 })
+  ev(354, { 0: 32953, 1: 32966, 2: 3018, 3: 9 })
 
   const fish = lines.filter((l) => l.t === 'fish')
 
@@ -149,14 +149,14 @@ test('an escape is a line with no catch; an abort and a stray reward are nothing
   const { lines, ev, join } = tracker()
 
   join()
-  ev(267, { 1: 160, 3: 2 }) // no bout running
-  ev(355, { 0: ME, 1: 1, 2: 3018, 3: 3 })
-  ev(355, { 0: ME, 1: 1, 2: 3018, 3: 15 }) // aborted before a bite
-  ev(355, { 0: ME, 1: 1, 2: 3018, 3: 3 })
-  ev(355, { 0: ME, 1: 1, 2: 3018, 3: 5 })
-  ev(355, { 0: ME, 1: 1, 2: 3018, 3: 10 }) // got away
-  ev(355, { 0: 777, 1: 2, 2: 3018, 3: 3 }) // someone else's bout
-  ev(355, { 0: 777, 1: 2, 2: 3018, 3: 9 })
+  ev(266, { 1: 160, 3: 2 }) // no bout running
+  ev(354, { 0: ME, 1: 1, 2: 3018, 3: 3 })
+  ev(354, { 0: ME, 1: 1, 2: 3018, 3: 15 }) // aborted before a bite
+  ev(354, { 0: ME, 1: 1, 2: 3018, 3: 3 })
+  ev(354, { 0: ME, 1: 1, 2: 3018, 3: 5 })
+  ev(354, { 0: ME, 1: 1, 2: 3018, 3: 10 }) // got away
+  ev(354, { 0: 777, 1: 2, 2: 3018, 3: 3 }) // someone else's bout
+  ev(354, { 0: 777, 1: 2, 2: 3018, 3: 9 })
 
   const fish = lines.filter((l) => l.t === 'fish')
 
@@ -220,10 +220,10 @@ test("a chest counts when it is opened and the member is on its list — once", 
   const { lines, ev, join } = tracker()
 
   join()
-  ev(393, { 0: 14628, 3: 'MORGANA_DYNAMIC_CAMP_PERSONAL_SMALL_LC', 21: -1, 23: 4 })
-  ev(394, { 0: 14628, 1: 3, 3: MY_GUID }) // a state change, not an opening
-  ev(394, { 0: 14628, 1: 7, 3: [...OTHER_GUID, ...MY_GUID] }) // opened; we are the second of two
-  ev(394, { 0: 14628, 1: 7, 3: [...OTHER_GUID, ...MY_GUID] }) // resent
+  ev(392, { 0: 14628, 3: 'MORGANA_DYNAMIC_CAMP_PERSONAL_SMALL_LC', 21: -1, 23: 4 })
+  ev(393, { 0: 14628, 1: 3, 3: MY_GUID }) // a state change, not an opening
+  ev(393, { 0: 14628, 1: 7, 3: [...OTHER_GUID, ...MY_GUID] }) // opened; we are the second of two
+  ev(393, { 0: 14628, 1: 7, 3: [...OTHER_GUID, ...MY_GUID] }) // resent
 
   const chests = lines.filter((l) => l.t === 'chest')
 
@@ -235,8 +235,8 @@ test("somebody else's chest is not the member's", () => {
   const { lines, ev, join } = tracker()
 
   join()
-  ev(393, { 0: 19128, 3: 'TREASURE_SOLO_UNCOMMON', 21: 1 })
-  ev(394, { 0: 19128, 1: 7, 3: OTHER_GUID })
+  ev(392, { 0: 19128, 3: 'TREASURE_SOLO_UNCOMMON', 21: 1 })
+  ev(393, { 0: 19128, 1: 7, 3: OTHER_GUID })
 
   assert.equal(lines.filter((l) => l.t === 'chest').length, 0)
 })
@@ -246,7 +246,7 @@ test('respec, might and favour, and faction points are written as the game sends
 
   join()
   ev(84, { 0: [0, 33514245625n, 0, 0, 0], 1: 1, 2: 124233120, 3: 143667680 })
-  ev(497, { 0: 0, 1: 21567, 2: 2396, 3: 7189, 4: 5208, 5: 315, 6: 1736, 7: 480521792, 9: 2 })
+  ev(496, { 0: 0, 1: 21567, 2: 2396, 3: 7189, 4: 5208, 5: 315, 6: 1736, 7: 480521792, 9: 2 })
   ev(85, { 0: 3, 2: 7, 3: 5208, 5: 0, 9: 480521792 })
 
   const pick = (t) => lines.find((l) => l.t === t)
@@ -257,6 +257,19 @@ test('respec, might and favour, and faction points are written as the game sends
     { might: 21567, favor: 5208, might_premium: 7189 }
   )
   assert.deepEqual({ city: pick('faction').city, gained: pick('faction').gained, total: pick('faction').total }, { city: 7, gained: 5208, total: 480521792 })
+})
+
+test('October 15 Might/Favor 496 is counted once; the old 497 route stays inactive', () => {
+  const { lines, ev, join } = tracker()
+  join()
+  const payload = { 0: 33, 1: 30953497, 2: 5895904, 3: 10317832, 4: 13982139,
+    5: 1553571, 6: 4660713, 7: 268952744, 9: 4, 10: {}, 11: {} }
+  ev(496, payload)
+  ev(497, payload)
+  const gains = lines.filter((line) => line.t === 'might')
+  assert.equal(gains.length, 1)
+  assert.equal(gains[0].might, 30953497)
+  assert.equal(gains[0].favor, 13982139)
 })
 
 test('a payload in a shape the tracker does not know is ignored, not guessed at', () => {

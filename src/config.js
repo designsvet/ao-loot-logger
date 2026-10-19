@@ -1,6 +1,9 @@
 const { version } = require('../package.json')
 
-// Photon/Albion event and operation codes (fixed for the game protocol version in use)
+// October 2026: DebugAggroInfo was removed after NewMob (123).
+// Event ordinals below are explicit, checked against the primary enum and
+// October 15 traffic for profiles (142), pickups (278) and Might/Favor (496).
+// Operation codes did not move. See docs/2026-10-protocol-hotfix.md.
 const EVENTS = {
   EvInventoryPutItem: 26,
   EvNewCharacter: 29,
@@ -10,8 +13,9 @@ const EVENTS = {
   EvNewLoot: 98,
   EvAttachItemContainer: 99,
   EvDetachItemContainer: 100,
-  EvCharacterStats: 143,
-  EvOtherGrabbedLoot: 279,
+  // 143 is kill history now; its arrays must never enter the profile parser.
+  EvCharacterStats: 142,
+  EvOtherGrabbedLoot: 278,
   // Local patch: absent from the fork, so loot chests never registered as containers
   // and every self-pickup from one hit "cant find container". Derived from
   // Triky313/AlbionOnline-StatisticsAnalysis EventCodes.cs enum ordinals, whose
@@ -20,26 +24,16 @@ const EVENTS = {
   // from the reference enum's ordinals, calibrated against the ten codes above
   // which match it exactly at offset 0. They DRIFT between game patches — other
   // repos carry 300/301 and 297/298 — so re-derive rather than trusting a doc.
-  EvPartyLootSettingChangedPlayer: 237,
-  EvPartyLootItems: 302,
-  EvPartyLootItemsRemoved: 303,
-  EvPartyLootItemTypesRemoved: 304,
-  EvNewLootChest: 393,
-  EvUpdateLootChest: 394,
-  // Local patch: the daily bonus rotation (FestivitiesUpdate). TWO candidates, because the
-  // sources disagree and only live traffic settles it: 518 is the ordinal in the reference
-  // enum this table is calibrated against (which matches all twelve codes above exactly),
-  // 511 is an older IL2CPP dump of Albion.Common.dll. Both are dispatched to the same
-  // handler, which validates the payload's SHAPE and stays silent when it does not match —
-  // so the wrong number costs nothing and the right one works on whichever patch we are on.
-  // 2026-09-01: the code moved 518 -> 519. Read off the live client with the packet
-  // dumper after the daily-bonus board went silent for two days — the payload is
-  // UNCHANGED (five parallel arrays, same fields), only the ordinal moved, which is the
-  // drift the note at the top of this file warns about. Both previous codes stay wired:
-  // the handler validates the payload's shape and stays silent on a mismatch, so an old
-  // code that now belongs to something else costs nothing.
-  EvFestivitiesUpdate: 519,
-  EvFestivitiesUpdateLegacy: 518,
+  EvPartyLootSettingChangedPlayer: 236,
+  EvPartyLootItems: 301,
+  EvPartyLootItemsRemoved: 302,
+  EvPartyLootItemTypesRemoved: 303,
+  EvNewLootChest: 392,
+  EvUpdateLootChest: 393,
+  // Festivities is 518 again. Preserve the existing shape-validated candidates:
+  // unlike other handlers, this handler ignores a non-matching parallel-array shape.
+  EvFestivitiesUpdate: 518,
+  EvFestivitiesUpdateLegacy: 519,
   EvFestivitiesUpdateLegacy2: 511,
   // Local patch: the guild's siphoned-energy total and the guild screen's drain
   // block. Both codes were READ off the live client on 2026-09-01 (see the
