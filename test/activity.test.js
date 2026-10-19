@@ -1,5 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert')
+const path = require('node:path')
 
 const { createActivity } = require('../src/activity/activity')
 const { activityFileFor, ActivityLog } = require('../src/activity/activity-log')
@@ -283,9 +284,10 @@ test('a payload in a shape the tracker does not know is ignored, not guessed at'
 })
 
 test('the file sits beside the loot log and is named after it', () => {
+  const directory = path.join(require('node:os').tmpdir(), 'Guild Butler Capture')
   assert.equal(
-    activityFileFor('/Users/me/Library/Application Support/Guild Butler Capture/loot-events-2026-09-18-17-43-51.txt'),
-    '/Users/me/Library/Application Support/Guild Butler Capture/activity-events-2026-09-18-17-43-51.jsonl'
+    activityFileFor(path.join(directory, 'loot-events-2026-09-18-17-43-51.txt')),
+    path.join(directory, 'activity-events-2026-09-18-17-43-51.jsonl')
   )
 })
 
