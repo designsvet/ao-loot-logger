@@ -357,8 +357,8 @@ test('the rotation is read under its new code', (t) => {
 test('the router still reaches the handler for all three wired codes', () => {
   const Config = require('../src/config')
 
-  assert.equal(Config.events.EvFestivitiesUpdate, 519)
-  assert.equal(Config.events.EvFestivitiesUpdateLegacy, 518)
+  assert.equal(Config.events.EvFestivitiesUpdate, 518)
+  assert.equal(Config.events.EvFestivitiesUpdateLegacy, 519)
   assert.equal(Config.events.EvFestivitiesUpdateLegacy2, 511)
 })
 

@@ -12,7 +12,8 @@
  *    current join id every time — fame 104/105, fishing 239/239, focus 2/2, journals 6/6.
  *  - BROADCAST. Silver pickups (62) and harvests (61) arrive for the players around the member
  *    too (18 of 355 pickups were the member's), so both are filtered on the join id.
- *  - FISH. A catch is RewardGranted (267) inside a bout the server narrates on event 355
+ *  - FISH. In the September recordings a catch was RewardGranted (267), with bouts on 355.
+ *    Current October codes are 266 and 354 respectively
  *    (parameter 3: 3 line out · 4 cast · 5 bite · 7/8 a tug · 9 landed · 10 escaped · 15 aborted).
  *    An escape OMITS the success flag rather than sending false.
  *
@@ -40,11 +41,13 @@ const EV = {
   UpdateReSpecPoints: 84,
   UpdateCurrency: 85,
   NewMob: 123,
-  RewardGranted: 267,
-  FishingState: 355,
-  NewLootChest: 393,
-  UpdateLootChest: 394,
-  MightAndFavor: 497
+  // Current October ordinals; the September recordings used values one higher.
+  // Only this explicit event table changes. Operations and parameter shapes do not.
+  RewardGranted: 266,
+  FishingState: 354,
+  NewLootChest: 392,
+  UpdateLootChest: 393,
+  MightAndFavor: 496
 }
 
 const OP = { Join: 2 }

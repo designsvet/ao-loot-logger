@@ -1,5 +1,8 @@
 # AO Loot Logger — macOS (personal build)
 
+The public 0.8.9 maintenance candidate updates October 2026 event routing.
+See [compatibility evidence and limits](docs/2026-10-protocol-hotfix.md).
+
 Upstream (`matheussampaio/ao-loot-logger`) is **stuck on Photon Protocol 16 and
 decodes nothing** against live Albion — it captures packets, prints `ALBION
 DETECTED`, and logs zero events. This clone therefore tracks **`madvac/ao-loot-logger`**,
